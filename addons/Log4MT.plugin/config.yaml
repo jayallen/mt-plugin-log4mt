@@ -1,0 +1,25 @@
+### Log4MT - A plugin for Movable Type.
+# Copyright (c) 2007, Jay Allen
+# This program is distributed under the terms of the
+# GNU General Public License, version 2.
+# $Id$
+name: Log4MT
+key: Log4MT
+id: Log4MT
+version: 1.5
+author_name: Jay Allen, Endevver Consulting
+author_link: http://endevver.com/
+description: The Log4MT plugin enhances Movable Type with the fantastic and ultra-powerful Log4Perl logging framework.
+plugin_link: https://trac.endevver.com/movabletype/wiki/code/log4mt
+doc_link:  https://trac.endevver.com/movabletype/wiki/code/log4mt
+
+init: $Log4MT::Log4MT::init
+
+config_settings:
+    Log4MTConfig:
+        default: log4mt.conf
+        path: 1
+
+callbacks:
+    init_request: $Log4MT::Log4MT::init_request
+    template_param: $Log4MT::Log4MT::show_template_params

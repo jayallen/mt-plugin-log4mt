@@ -1,0 +1,33 @@
+CANONICAL PATH: /Users/jay/svn/movabletype-endevver/plugins/Log4MT/trunk/addons/Log4MT.plugin
+CANONICAL URL:  https://svn.endevver.com/movabletype/plugins/Log4MT/trunk/addons/Log4MT.plugin
+     
+============================================================================================================
+
+Evaluate entire branch for changes
+    https://svn.endevver.com/stl/mt/mtcs-402/addons/Log4MT.plugin
+           /Users/jay/Sites/stl.local/html/mt-BAK/addons/Log4MT.plugin
+    UNVERSIONED SOURCES:
+        /Users/jay/Sites/mt.local/402cs/cgi/mt/addons/Log4MT.plugin     
+        /Users/jay/Sites/tdi.local/wellpoint4/cgi/_mt-hold/addons/Log4MT.plugin
+
+Files to evaluate for inclusion or needed data:
+    /Users/jay/Sites/tdi.local/wellpoint4/cgi/mt/addons/Log4MT.plugin/000NOTES.txt
+    /Users/jay/Sites/tdi.local/wellpoint4/cgi/mt/addons/Log4MT.plugin/aconfig.yaml
+    /Users/jay/Sites/tdi.local/wellpoint4/cgi/mt/addons/Log4MT.plugin/lib/MT/Devel.pm
+    /Users/jay/Sites/tdi.local/wellpoint4/cgi/mt/addons/Log4MT.plugin/lib/MT/Log/Base.pm
+
+Remove source from branch and pull svn:externals from canonical
+    https://svn.endevver.com/endevver/code/plugins/Log4MT/branches/initial-release/addons/Log4MT.plugin
+           /Users/jay/svn/endevver/code/plugins/Log4MT/branches/initial-release/addons/Log4MT.plugin
+
+Archive branch
+    https://svn.endevver.com/endevver/code/plugins/Log4MT/tags/v1.0/addons/Log4MT.plugin
+           /Users/jay/svn/endevver/code/plugins/Log4MT/tags/v1.0/addons/Log4MT.plugin
+
+    https://svn.texturadesign.com/wellpoint/MT4/addons/Log4MT.plugin           
+           /Users/jay/Sites/tdi.local/wellpoint4/cgi/mt/addons/Log4MT.plugin
+
+    https://svn.texturadesign.com/private/MT-Log4perl/branches/mt4.1/addons/Log4MT.plugin
+           /Users/jay/svn/tdi_private/MT-Log4perl/branches/mt4.1/addons/Log4MT.plugin
+
+============================================================================================================
