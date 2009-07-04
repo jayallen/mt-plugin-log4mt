@@ -5,7 +5,9 @@
 * **VERSION:**    1.5
 * **DATE:**       10/03/2008
 
-The Log4MT plugin enhances Movable Type with the fantastic and ultra-powerful Log4Perl logging framework. Like Log4perl, Log4MT enables you to debug your code, handle exceptions or send notifications with one of six priorities (trace, debug, info, warn, error, fatal).
+The Log4MT plugin enhances Movable Type with the [fantastic and ultra-powerful Log4Perl logging framework][Log4perl]. Like Log4perl, Log4MT enables you to debug your code, handle exceptions or send notifications with one of six priorities (trace, debug, info, warn, error, fatal).
+
+[Log4perl]: http://log4perl.sourceforge.net/
 
 The output of those messages can go to any of the following:
 
@@ -19,7 +21,9 @@ The output of those messages can go to any of the following:
 
 What's more, with Log4MT you can completely control not only the formatting of those messages but also exert granular control over what messages should trigger output, which output methods they should trigger or which messages should be ignored altogether.
 
-For an overview on Log4MT's capabilities, see the excellent overview of Log::Log4perl Retire your debugger, log smartly with Log::Log4perl!
+For an overview on Log4MT's capabilities, see the excellent overview of Log::Log4perl "[Retire your debugger, log smartly with Log::Log4perl!][]"
+
+[Retire your debugger, log smartly with Log::Log4perl!]: http://www.perl.com/pub/a/2002/09/11/log4perl.html
 
 ## VERSION ##
 
