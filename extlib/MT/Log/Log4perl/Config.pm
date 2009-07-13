@@ -1,9 +1,10 @@
-package MT::Log::Log4perl::Config;
 # $Id: Config.pm 804 2008-02-14 22:56:05Z jay $
+
+package MT::Log::Log4perl::Config;
 
 use strict; use warnings; use Data::Dumper;
 
-use MT::Log::Log4perl::Util qw( err emergency_log );
+use MT::Log::Log4perl::Util qw( err emergency_log trace );
 
 our $INITIALIZED;
 sub initialized {
@@ -12,7 +13,7 @@ sub initialized {
 
 sub new {
     my $class = shift;
-    err((caller(0))[3]);
+    trace();
     my $self = bless {}, $class;
     $self->init(@_);
     $self;
@@ -20,13 +21,25 @@ sub new {
 
 sub init {
     my ($self, $args) = @_;
-    err((caller(0))[3]);
-
+    trace();
     my ($config, $config_response, $class, @eval_msgs);
-    foreach my $type (qw(file mtconfig webui basic)) {
+
+    # use MT::Request;
+    # my $r = MT::Request->instance;
+    # $r->cache('foo', $foo);
+    # 
+    # ## Later and elsewhere...
+    # my $foo = $r->cache('foo');
+
+
+    # TODO  Finish other configurators and reorder the choices.
+    #       The order below is not ideal but had to be done to
+    #       solve a boostrapping problem where Log4perl either could
+    #       not be used until MT was fully initialized
+    foreach my $type (qw(file basic mtconfig webui)) {
         eval {
             $config = '';
-            $class = "MT::Log::Log4perl::Config::$type";
+            $class = join("::", 'MT::Log::Log4perl::Config', $type);
             push @eval_msgs, "Trying $class configuration";
             eval "require $class;";
             if ($config = $class->load($args)) {
@@ -42,19 +55,20 @@ sub init {
     }
     err("Config class being used: $class") if $config_response;
     err("\$config_response = $config_response");
+
     return $config_response ? $self : undef;
-    # return $self if $self->initialized;
-    
-    # First look for a config_file argument, then a config
-    if (   $self->config_file($args->{config_file})
-        or $self->config_data($args->{config})) {
-        $self->initialized(1);
-    }
+
+    # # return $self if $self->initialized;
+    # # First look for a config_file argument, then a config
+    # if (   $self->config_file($args->{config_file})
+    #     or $self->config_data($args->{config})) {
+    #     $self->initialized(1);
+    # }
 }
 
 sub config_file {
     my ($self, $file) = @_;
-    err((caller(0))[3]);
+    trace();
 
     # Return previously defined config file if the caller is asking for it
     return $self->{_config_file} if ! defined $file or $file eq '';
@@ -88,7 +102,7 @@ sub config_file {
 sub config_data {
     my $self = shift;
     my $data = (@_ > 1) ? { @_ } : shift;
-    err((caller(0))[3]);
+    trace();
 
     if (! defined $data) {
         # Return previously defined config file if

@@ -1,8 +1,9 @@
 package MT::Log::Log4perl::BaseLogger;
 use strict; use warnings; use Data::Dumper;
 
+use Carp;
 use Log::Log4perl;
-use MT::Log::Log4perl::Util qw(err emergency_log);
+use MT::Log::Log4perl::Util qw( err emergency_log  );
 
 our @levels = qw[ trace debug info warn error fatal ];    
 
@@ -12,27 +13,14 @@ our @methods = qw(error_die   logcroak      get_level
                   logdie      add_appender  less_logging
                   logwarn     additivity    more_logging  );
 
-foreach my $name (@methods, level_variants(@levels)) {
-    err("Creating anonymous sub stub for $name");
-    no strict 'refs';
-    # TODO Check that these work properly
-    if ($name =~ /((?<=.)warn)/) {
-        *{$name} = sub {  warn @_; };
-    }
-    elsif ($name =~ /die/) {
-         *{$name} = sub {  die @_; };
-    }
-    elsif ($name =~ /(confess|cluck|croak|carp)/) {
-         *{$name} = sub {  use Carp; &{$name}(@_) };
-    }
-    else {
-        *{$name} = sub { };        
-    }
-}
+my $methods_installed;
 
 sub new {
     my $class = shift;
     my $args = shift;
+    MT::Log::Log4perl::Util::trace();
+    err('Arguments: '.Dumper({class => $class, args => $args}));
+    
     if ($args->{initialized} and $class ne 'MT::Log::Log4perl::Logger') {
         require MT::Log::Log4perl::Logger;
         $class = 'MT::Log::Log4perl::Logger';
@@ -44,9 +32,31 @@ sub new {
     # $self;
 }
 
+
 sub init {
-    err((caller(0))[3]."\n");
     my $self = shift;
+    MT::Log::Log4perl::Util::trace();
+
+    unless ( $methods_installed++ ) {
+        foreach my $name (@methods, level_variants(@levels)) {
+            err("Creating anonymous sub stub for $name");
+            no strict 'refs';
+            # TODO Check that these work properly
+            if ($name =~ /((?<=.)warn)/) {
+                *{$name} = sub {  warn @_; };
+            }
+            elsif ($name =~ /die/) {
+                 *{$name} = sub {  die @_; };
+            }
+            elsif ($name =~ /(confess|cluck|croak|carp)/) {
+                 *{$name} = sub {  &{"Carp::".substr($name, 3)}(@_) };
+            }
+            else {
+                *{$name} = sub { };        
+            }
+        }        
+    }
+
     $self;
 }
 
@@ -62,8 +72,7 @@ sub level_variants {
     @variants;
 }
 
-sub init_logger { err((caller(0))[3]."\n");
-}
+sub init_logger { trace(); }
 
 sub levels { @levels }
 sub methods { @methods }

@@ -4,22 +4,22 @@ use strict; use warnings; use Data::Dumper;
 use MT::Log::Log4perl::BaseLogger;
 use base qw(MT::Log::Log4perl::BaseLogger);
 use Log::Log4perl qw(:levels);
-use MT::Log::Log4perl::Util qw(err emergency_log);
+use MT::Log::Log4perl::Util qw( err emergency_log trace );
 
 use vars qw($trace_wrapper $logger_methods_installed);
 
 sub init {
     my $self = shift;
     my $args = shift;
-    err((caller(0))[3]);
+    trace();
     $self->SUPER::init(@_);
     $self->init_logger($args->{category});
 }
 
 sub init_logger {
-    err((caller(0))[3]);
     my $self = shift;
     my $cat = shift;
+    trace();
     err(sprintf "init_logger being called from %s "
         ."with category %s\n", (caller(1))[3], ($cat||'NULL'));
     eval {
@@ -40,6 +40,7 @@ sub init_logger {
 
 sub init_handlers {
     return if $logger_methods_installed;
+    trace();
 
     no warnings qw(redefine);
     require Log::Log4perl::Logger;
