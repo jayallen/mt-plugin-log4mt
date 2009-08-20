@@ -1,6 +1,7 @@
 package Log::Dispatch::Email::MailSend;
 
 use strict;
+use warnings;
 
 use Log::Dispatch::Email;
 
@@ -8,11 +9,7 @@ use base qw( Log::Dispatch::Email );
 
 use Mail::Send;
 
-use vars qw[ $VERSION ];
-
-$VERSION = '1.19';
-
-1;
+our $VERSION = '1.19';
 
 sub send_email
 {
@@ -30,19 +27,21 @@ sub send_email
     local $?;
     eval
     {
-	my $fh = $msg->open
-	    or die "Cannot open handle to mail program";
+        my $fh = $msg->open
+            or die "Cannot open handle to mail program";
 
-	$fh->print( $p{message} )
-	    or die "Cannot print message to mail program handle";
+        $fh->print( $p{message} )
+            or die "Cannot print message to mail program handle";
 
-	$fh->close
-	    or die "Cannot close handle to mail program";
+        $fh->close
+            or die "Cannot close handle to mail program";
     };
 
     warn $@ if $@ && $^W;
 }
 
+
+1;
 
 __END__
 

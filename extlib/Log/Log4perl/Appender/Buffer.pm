@@ -13,7 +13,7 @@ use warnings;
 
 our @ISA = qw(Log::Log4perl::Appender);
 
-our $CVSVERSION   = '$Revision: 663 $';
+our $CVSVERSION   = '$Revision: 1.2 $';
 our ($VERSION)    = ($CVSVERSION =~ /(\d+\.\d+)/);
 
 ###########################################

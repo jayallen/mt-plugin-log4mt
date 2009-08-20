@@ -29,8 +29,14 @@ sub new {
         recreate_check_interval => 30,
         recreate_check_signal   => undef,
         recreate_pid_write      => undef,
+        create_at_logtime       => 0,
+        header_text             => undef,
         @options,
     };
+
+    if($self->{create_at_logtime}) {
+        $self->{recreate}  = 1;
+    }
 
     if(defined $self->{umask} and $self->{umask} =~ /^0/) {
             # umask value is a string, meant to be an oct value
@@ -52,7 +58,7 @@ sub new {
     }
 
         # This will die() if it fails
-    $self->file_open();
+    $self->file_open() unless $self->{create_at_logtime};
 
     return $self;
 }
@@ -114,9 +120,9 @@ sub file_open {
     if($self->{recreate}) {
         $self->{watcher} = Log::Log4perl::Config::Watch->new(
             file           => $self->{filename},
-            ($self->{recreate_check_interval} ?
+            (defined $self->{recreate_check_interval} ?
               (check_interval => $self->{recreate_check_interval}) : ()),
-            ($self->{recreate_check_signal} ?
+            (defined $self->{recreate_check_signal} ?
               (signal => $self->{recreate_check_signal}) : ()),
         );
     }
@@ -137,6 +143,14 @@ sub file_open {
 
     if (defined $self->{utf8}) {
         binmode $self->{fh}, ":utf8";
+    }
+
+    if(defined $self->{header_text}) {
+        if( $self->{header_text} !~ /\n\Z/ ) {
+            $self->{header_text} .= "\n";
+        }
+        my $fh = $self->{fh};
+        print $fh $self->{header_text};
     }
 }
 
@@ -210,7 +224,8 @@ sub log {
                 $self->file_switch($self->{filename});
             }
         } else {
-            if($self->{watcher}->file_has_moved()) {
+            if(!$self->{watcher} or
+                $self->{watcher}->file_has_moved()) {
                 $self->file_switch($self->{filename});
             }
         }
@@ -375,7 +390,7 @@ This obviously means that the appender will continue writing to
 a moved file until the next check occurs, in the worst case
 this will happen C<recreate_check_interval> seconds after the file
 has been moved or deleted. If this is undesirable,
-setting C<recreate_check_interval> to 0 will have the appender
+setting C<recreate_check_interval> to 0 will have the
 appender check the file with I<every> call to C<log()>.
 
 =item recreate_check_signal
@@ -395,6 +410,29 @@ been rotated. This option expects a path to a file where the pid
 of the currently running application gets written to.
 Check the FAQ for using this option with the log rotating 
 utility C<newsyslog>.
+
+=item create_at_logtime
+
+The file appender typically creates its logfile in its constructor, i.e. 
+at Log4perl C<init()> time. This is desirable for most use cases, because
+it makes sure that file permission problems get detected right away, and 
+not after days/weeks/months of operation when the appender suddenly needs
+to log something and fails because of a problem that was obvious at
+startup.
+
+However, there are rare use cases where the file shouldn't be created
+at Log4perl C<init()> time, e.g. if the appender can't be used by the current
+user although it is defined in the configuration file. If you set
+C<create_at_logtime> to a true value, the file appender will try to create
+the file at log time. Note that this setting lets permission problems
+sit undetected until log time, which might be undesirable.
+
+=item header_text
+
+If you want Log4perl to print a header into every newly opened
+(or re-opened) logfile, set C<header_text> to either a string
+or a subroutine returning a string. If the message doesn't have a newline,
+a newline at the end of the header will be provided.
 
 =back
 

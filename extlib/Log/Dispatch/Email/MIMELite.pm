@@ -1,6 +1,7 @@
 package Log::Dispatch::Email::MIMELite;
 
 use strict;
+use warnings;
 
 use Log::Dispatch::Email;
 
@@ -8,11 +9,8 @@ use base qw( Log::Dispatch::Email );
 
 use MIME::Lite;
 
-use vars qw[ $VERSION ];
+our $VERSION = '1.19';
 
-$VERSION = '1.19';
-
-1;
 
 sub send_email
 {
@@ -20,19 +18,22 @@ sub send_email
     my %p = @_;
 
     my %mail = ( To      => (join ',', @{ $self->{to} }),
-		 Subject => $self->{subject},
-		 Type    => 'TEXT',
-		 Data    => $p{message},
-	       );
+                 Subject => $self->{subject},
+                 Type    => 'TEXT',
+                 Data    => $p{message},
+               );
 
     $mail{From} = $self->{from} if defined $self->{from};
 
     local $?;
     unless ( MIME::Lite->new(%mail)->send )
     {
-	warn "Error sending mail with MIME::Lite" if $^W;
+        warn "Error sending mail with MIME::Lite" if warnings::enabled();
     }
 }
+
+
+1;
 
 __END__
 

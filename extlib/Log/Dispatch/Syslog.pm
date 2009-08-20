@@ -1,6 +1,7 @@
 package Log::Dispatch::Syslog;
 
 use strict;
+use warnings;
 
 use Log::Dispatch::Output;
 
@@ -9,16 +10,9 @@ use base qw( Log::Dispatch::Output );
 use Params::Validate qw(validate SCALAR);
 Params::Validate::validation_options( allow_extra => 1 );
 
-use Sys::Syslog ();
+use Sys::Syslog 0.16 ();
 
-# This is old school!
-require 'syslog.ph' if $] < 5.006;
-
-use vars qw[ $VERSION ];
-
-$VERSION = '1.18';
-
-1;
+our $VERSION = '1.18';
 
 sub new
 {
@@ -40,14 +34,14 @@ sub _init
     my $self = shift;
 
     my %p = validate( @_, { ident    => { type => SCALAR,
-					  default => $0 },
-			    logopt   => { type => SCALAR,
-					  default => '' },
-			    facility => { type => SCALAR,
-					  default => 'user' },
-			    socket   => { type => SCALAR,
-					  default => 'unix' },
-			  } );
+                                          default => $0 },
+                            logopt   => { type => SCALAR,
+                                          default => '' },
+                            facility => { type => SCALAR,
+                                          default => 'user' },
+                            socket   => { type => SCALAR,
+                                          default => undef },
+                          } );
 
     $self->{ident}    = $p{ident};
     $self->{logopt}   = $p{logopt};
@@ -55,15 +49,16 @@ sub _init
     $self->{socket}   = $p{socket};
 
     $self->{priorities} = [ 'DEBUG',
-			    'INFO',
-			    'NOTICE',
-			    'WARNING',
-			    'ERR',
-			    'CRIT',
-			    'ALERT',
-			    'EMERG' ];
+                            'INFO',
+                            'NOTICE',
+                            'WARNING',
+                            'ERR',
+                            'CRIT',
+                            'ALERT',
+                            'EMERG' ];
 
-    Sys::Syslog::setlogsock $self->{socket};
+    Sys::Syslog::setlogsock( $self->{socket} )
+        if defined $self->{socket};
 }
 
 sub log_message
@@ -73,10 +68,18 @@ sub log_message
 
     my $pri = $self->_level_as_number($p{level});
 
-    Sys::Syslog::openlog($self->{ident}, $self->{logopt}, $self->{facility});
-    Sys::Syslog::syslog($self->{priorities}[$pri], '%s', $p{message});
-    Sys::Syslog::closelog;
+    eval
+    {
+        Sys::Syslog::openlog($self->{ident}, $self->{logopt}, $self->{facility});
+        Sys::Syslog::syslog($self->{priorities}[$pri], $p{message});
+        Sys::Syslog::closelog;
+    };
+
+    warn $@ if $@ and $^W;
 }
+
+
+1;
 
 __END__
 
@@ -98,6 +101,10 @@ Log::Dispatch::Syslog - Object for logging to system log.
 
 This module provides a simple object for sending messages to the
 system log (via UNIX syslog calls).
+
+Note that logging may fail if you try to pass UTF-8 characters in the
+log message. If logging fails and warnings are enabled, the error
+message will be output using Perl's C<warn>.
 
 =head1 METHODS
 
@@ -134,10 +141,8 @@ Defaults to $0.
 =item * logopt ($)
 
 A string containing the log options (separated by any separator you
-like).  Valid options are 'cons', 'pid', 'ndelay', and 'nowait'.  See
-the openlog(3) and Sys::Syslog docs for more details.  I would suggest
-not using 'cons' but instead using Log::Dispatch::Screen.  Defaults to
-''.
+like).  See the openlog(3) and Sys::Syslog docs for more details.
+Defaults to ''.
 
 =item * facility ($)
 
@@ -149,7 +154,11 @@ Valid options are 'auth', 'authpriv', 'cron', 'daemon', 'kern',
 =item * socket ($)
 
 Tells what type of socket to use for sending syslog messages.  Valid
-options are 'unix' or 'inet'.  Defaults to 'unix'.
+options are listed in C<Sys::Syslog>.
+
+If you don't provide this, then we let C<Sys::Syslog> simply pick one
+that works, which is the preferred option, as it makes your code more
+portable.
 
 =item * callbacks( \& or [ \&, \&, ... ] )
 

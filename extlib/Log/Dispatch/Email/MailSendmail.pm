@@ -1,6 +1,7 @@
 package Log::Dispatch::Email::MailSendmail;
 
 use strict;
+use warnings;
 
 use Log::Dispatch::Email;
 
@@ -8,11 +9,8 @@ use base qw( Log::Dispatch::Email );
 
 use Mail::Sendmail ();
 
-use vars qw[ $VERSION ];
+our $VERSION = '1.20';
 
-$VERSION = '1.20';
-
-1;
 
 sub send_email
 {
@@ -20,18 +18,21 @@ sub send_email
     my %p = @_;
 
     my %mail = ( To      => (join ',', @{ $self->{to} }),
-		 Subject => $self->{subject},
-		 Message => $p{message},
-		 # Mail::Sendmail insists on having this parameter.
-		 From    => $self->{from} || 'LogDispatch@foo.bar',
-	       );
+                 Subject => $self->{subject},
+                 Message => $p{message},
+                 # Mail::Sendmail insists on having this parameter.
+                 From    => $self->{from} || 'LogDispatch@foo.bar',
+               );
 
     local $?;
     unless ( Mail::Sendmail::sendmail(%mail) )
     {
-	warn "Error sending mail: $Mail::Sendmail::error" if $^W;
+        warn "Error sending mail: $Mail::Sendmail::error" if warnings::enabled();
     }
 }
+
+
+1;
 
 __END__
 

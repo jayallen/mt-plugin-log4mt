@@ -1,6 +1,7 @@
 package Log::Dispatch::Output;
 
 use strict;
+use warnings;
 
 use Log::Dispatch;
 
@@ -9,13 +10,10 @@ use base qw( Log::Dispatch::Base );
 use Params::Validate qw(validate SCALAR ARRAYREF CODEREF);
 Params::Validate::validation_options( allow_extra => 1 );
 
-use vars qw[ $VERSION ];
-
 use Carp ();
 
-$VERSION = '1.26';
+our $VERSION = '1.26';
 
-1;
 
 sub new
 {
@@ -30,13 +28,13 @@ sub log
     my $self = shift;
 
     my %p = validate( @_, { level => { type => SCALAR },
-			    message => { type => SCALAR },
-			  } );
+                            message => { type => SCALAR },
+                          } );
 
     return unless $self->_should_log($p{level});
 
     $p{message} = $self->_apply_callbacks(%p)
-	if $self->{callbacks};
+        if $self->{callbacks};
 
     $self->log_message(%p);
 }
@@ -46,21 +44,21 @@ sub _basic_init
     my $self = shift;
 
     my %p = validate( @_, { name => { type => SCALAR },
-			    min_level => { type => SCALAR },
-			    max_level => { type => SCALAR,
-					   optional => 1 },
-			    callbacks => { type => ARRAYREF | CODEREF,
-					   optional => 1 },
-			  } );
+                            min_level => { type => SCALAR },
+                            max_level => { type => SCALAR,
+                                           optional => 1 },
+                            callbacks => { type => ARRAYREF | CODEREF,
+                                           optional => 1 },
+                          } );
 
     # Map the names to numbers so they can be compared.
     $self->{level_names} = [ qw( debug info notice warning error critical alert emergency ) ];
 
     my $x = 0;
     $self->{level_numbers} = { ( map { $_ => $x++ } @{ $self->{level_names} } ),
-			       err   => 4,
-			       crit  => 5,
-			       emerg => 7 };
+                               err   => 4,
+                               crit  => 5,
+                               emerg => 7 };
 
     $self->{name} = $p{name};
 
@@ -70,7 +68,7 @@ sub _basic_init
     # Either use the parameter supplies or just the highest possible
     # level.
     $self->{max_level} =
-	( exists $p{max_level} ?
+        ( exists $p{max_level} ?
           $self->_level_as_number($p{max_level}) :
           $#{ $self->{level_names} }
         );
@@ -115,7 +113,7 @@ sub _should_log
 
     my $msg_level = $self->_level_as_number(shift);
     return ( ( $msg_level >= $self->{min_level} ) &&
-	     ( $msg_level <= $self->{max_level} ) );
+             ( $msg_level <= $self->{max_level} ) );
 }
 
 sub _level_as_number
@@ -125,14 +123,14 @@ sub _level_as_number
 
     unless ( defined $level )
     {
-	Carp::croak "undefined value provided for log level";
+        Carp::croak "undefined value provided for log level";
     }
 
     return $level if $level =~ /^\d$/;
 
     unless ( Log::Dispatch->level_is_valid($level) )
     {
-	Carp::croak "$level is not a valid Log::Dispatch log level";
+        Carp::croak "$level is not a valid Log::Dispatch log level";
     }
 
     return $self->{level_numbers}{$level};
@@ -145,7 +143,7 @@ sub _level_as_name
 
     unless ( defined $level )
     {
-	Carp::croak "undefined value provided for log level";
+        Carp::croak "undefined value provided for log level";
     }
 
     return $level unless $level =~ /^\d$/;
@@ -153,6 +151,8 @@ sub _level_as_name
     return $self->{level_names}[$level];
 }
 
+
+1;
 
 __END__
 
@@ -293,6 +293,9 @@ architecture.  Subclassing is fairly trivial.  For most subclasses, if
 you simply copy the code in the SYNOPSIS and then put some
 functionality into the C<log_message> method then you should be all
 set.  Please make sure to use the C<_basic_init> method as directed.
+
+The actual logging implementation should be done in a C<log_message>
+method that you write. B<Do not override C<log>!>.
 
 =head1 AUTHOR
 

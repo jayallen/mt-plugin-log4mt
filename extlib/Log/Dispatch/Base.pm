@@ -1,11 +1,10 @@
 package Log::Dispatch::Base;
 
 use strict;
-use vars qw($VERSION @EXPORT_OK);
+use warnings;
 
-$VERSION = '1.09';
+our $VERSION = '1.09';
 
-1;
 
 sub _get_callbacks
 {
@@ -31,11 +30,14 @@ sub _apply_callbacks
     my $msg = delete $p{message};
     foreach my $cb ( @{ $self->{callbacks} } )
     {
-	$msg = $cb->( message => $msg, %p );
+        $msg = $cb->( message => $msg, %p );
     }
 
     return $msg;
 }
+
+
+1;
 
 __END__
 

@@ -1,26 +1,29 @@
 package Log::Dispatch;
 
-require 5.005;
+use 5.006;
 
 use strict;
-use vars qw[ $VERSION %LEVELS ];
+use warnings;
 
 use base qw( Log::Dispatch::Base );
 
 use Carp ();
 
-$VERSION = '2.12';
+our $VERSION = '2.22';
+our %LEVELS;
 
-1;
 
 BEGIN
 {
-    no strict 'refs';
     foreach my $l ( qw( debug info notice warning err error crit critical alert emerg emergency ) )
     {
-	*{$l} = sub { my $self = shift;
-		      $self->log( level => $l, message => "@_" ); };
-	$LEVELS{$l} = 1;
+        my $sub = sub { my $self = shift;
+                        $self->log( level => $l, message => "@_" ); };
+
+        $LEVELS{$l} = 1;
+
+        no strict 'refs';
+        *{$l} = $sub
     }
 }
 
@@ -46,7 +49,7 @@ sub add
     # Once 5.6 is more established start using the warnings module.
     if (exists $self->{outputs}{$object->name} && $^W)
     {
-	Carp::carp("Log::Dispatch::* object ", $object->name, " already exists.");
+        Carp::carp("Log::Dispatch::* object ", $object->name, " already exists.");
     }
 
     $self->{outputs}{$object->name} = $object;
@@ -65,14 +68,66 @@ sub log
     my $self = shift;
     my %p = @_;
 
+    return unless $self->would_log( $p{level} );
+
+    $self->_log_to_outputs( $self->_prepare_message(%p) );
+}
+
+sub _prepare_message
+{
+    my $self = shift;
+    my %p = @_;
+
+    $p{message} = $p{message}->()
+        if ref $p{message} eq 'CODE';
+
     $p{message} = $self->_apply_callbacks(%p)
-	if $self->{callbacks};
+        if $self->{callbacks};
+
+    return %p;
+}
+
+sub _log_to_outputs
+{
+    my $self = shift;
+    my %p = @_;
 
     foreach (keys %{ $self->{outputs} })
     {
-	$p{name} = $_;
-	$self->_log_to(%p);
+        $p{name} = $_;
+        $self->_log_to(%p);
     }
+}
+
+sub log_and_die
+{
+    my $self = shift;
+
+    my %p = $self->_prepare_message(@_);
+
+    $self->_log_to_outputs(%p) if $self->would_log($p{level});
+
+    $self->_die_with_message(%p);
+}
+
+sub log_and_croak
+{
+    my $self = shift;
+
+    $self->log_and_die( @_, carp_level => 3 );
+}
+
+sub _die_with_message
+{
+    my $self = shift;
+    my %p = @_;
+
+    my $msg = $p{message};
+
+    local $Carp::CarpLevel = ($Carp::CarpLevel || 0) + $p{carp_level}
+	if exists $p{carp_level};
+
+    Carp::croak($msg);
 }
 
 sub log_to
@@ -81,7 +136,7 @@ sub log_to
     my %p = @_;
 
     $p{message} = $self->_apply_callbacks(%p)
-	if $self->{callbacks};
+        if $self->{callbacks};
 
     $self->_log_to(%p);
 }
@@ -94,11 +149,11 @@ sub _log_to
 
     if (exists $self->{outputs}{$name})
     {
-	$self->{outputs}{$name}->log(@_);
+        $self->{outputs}{$name}->log(@_);
     }
     elsif ($^W)
     {
-	Carp::carp("Log::Dispatch::* object named '$name' not in dispatcher\n");
+        Carp::carp("Log::Dispatch::* object named '$name' not in dispatcher\n");
     }
 }
 
@@ -127,11 +182,14 @@ sub would_log
 
     foreach ( values %{ $self->{outputs} } )
     {
-	return 1 if $_->_should_log($level);
+        return 1 if $_->_should_log($level);
     }
 
     return 0;
 }
+
+
+1;
 
 __END__
 
@@ -206,11 +264,42 @@ Removes the object that matches the name given to the remove method.
 The return value is the object being removed or undef if no object
 matched this.
 
-=item * log( level => $, message => $ )
+=item * log( level => $, message => $ or \& )
 
 Sends the message (at the appropriate level) to all the
 Log::Dispatch::* objects that the dispatcher contains (by calling the
 C<log_to> method repeatedly).
+
+This method also accepts a subroutine reference as the message
+argument. This reference will be called only if there is an output
+that will accept a message of the specified level.
+
+B<WARNING>: This logging method does something intelligent with a
+subroutine reference as the message but other methods, like
+C<log_to()> or the C<log()> method of an output object, will just
+stringify the reference.
+
+=item * log_and_die( level => $, message => $ or \& )
+
+Has the same behavior as calling C<log()> but calls
+C<_die_with_message()> at the end.
+
+=item * log_and_croak( level => $, message => $ or \& )
+
+This method adjusts the C<$Carp::CarpLevel> scalar so that the croak
+comes from the context in which it is called.
+
+=item * _die_with_message( message => $, carp_level => $ )
+
+This method is used by C<log_and_die> and will either die() or croak()
+depending on the value of C<message>: if it's a reference or it ends
+with a new line then a plain die will be used, otherwise it will
+croak.
+
+You can throw exception objects by subclassing this method.
+
+If the C<carp_level> parameter is present its value will be added to
+the current value of C<$Carp::CarpLevel>.
 
 =item * log_to( name => $, level => $, message => $ )
 
@@ -272,14 +361,25 @@ The log levels that Log::Dispatch uses are taken directly from the
 syslog man pages (except that I expanded them to full words).  Valid
 levels are:
 
- debug
- info
- notice
- warning
- error
- critical
- alert
- emergency
+=over 4
+
+=item debug
+
+=item info
+
+=item notice
+
+=item warning
+
+=item error
+
+=item critical
+
+=item alert
+
+=item emergency
+
+=back
 
 Alternately, the numbers 0 through 7 may be used (debug is 0 and
 emergency is 7).  The syslog standard of 'err', 'crit', and 'emerg'
@@ -388,18 +488,28 @@ Simpler than Log::Log4perl.
 A very different API for doing many of the same things that
 Log::Dispatch does.  Originally written by Raphael Manfredi.
 
+=head1 SUPPORT
+
+Please submit bugs and patches to the CPAN RT system at
+http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Log%3A%3ADispatch
+or via email at bug-log-dispatch@rt.cpan.org.
+
+Support questions can be sent to me at my email address, shown below.
+
+The code repository is at https://svn.urth.org/svn/Log-Dispatch/
+
+=head1 AUTHOR
+
+Dave Rolsky, <autarch@urth.org>
+
 =head1 COPYRIGHT
 
-Copyright (c) 1999-2003 David Rolsky.  All rights reserved.  This
+Copyright (c) 1999-2006 David Rolsky.  All rights reserved.  This
 program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
 
 The full text of the license can be found in the LICENSE file included
 with this module.
-
-=head1 AUTHOR
-
-Dave Rolsky, <autarch@urth.org>
 
 =head1 SEE ALSO
 

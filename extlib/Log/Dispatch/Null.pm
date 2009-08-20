@@ -1,4 +1,4 @@
-package Log::Dispatch::Screen;
+package Log::Dispatch::Null;
 
 use strict;
 use warnings;
@@ -7,43 +7,20 @@ use Log::Dispatch::Output;
 
 use base qw( Log::Dispatch::Output );
 
-use Params::Validate qw(validate BOOLEAN);
-Params::Validate::validation_options( allow_extra => 1 );
-
-our $VERSION = '1.17';
-
 
 sub new
 {
     my $proto = shift;
     my $class = ref $proto || $proto;
 
-    my %p = validate( @_, { stderr => { type => BOOLEAN,
-                                        default => 1 },
-                          } );
-
     my $self = bless {}, $class;
 
-    $self->_basic_init(%p);
-    $self->{stderr} = exists $p{stderr} ? $p{stderr} : 1;
+    $self->_basic_init(@_);
 
     return $self;
 }
 
-sub log_message
-{
-    my $self = shift;
-    my %p = @_;
-
-    if ($self->{stderr})
-    {
-        print STDERR $p{message};
-    }
-    else
-    {
-        print STDOUT $p{message};
-    }
-}
+sub log_message { }
 
 
 1;
@@ -52,22 +29,21 @@ __END__
 
 =head1 NAME
 
-Log::Dispatch::Screen - Object for logging to the screen
+Log::Dispatch::File - Object that accepts messages and does nothing
 
 =head1 SYNOPSIS
 
-  use Log::Dispatch::Screen;
+  use Log::Dispatch::Null;
 
-  my $screen = Log::Dispatch::Screen->new( name      => 'screen',
-                                           min_level => 'debug',
-                                           stderr    => 1 );
+  my $null = Log::Dispatch::Null->new( name      => 'null',
+                                       min_level => 'info' );
 
-  $screen->log( level => 'alert', message => "I'm searching the city for sci-fi wasabi\n" );
+  $null->log( level => 'emerg', message => "I've fallen and I can't get up\n" );
 
 =head1 DESCRIPTION
 
-This module provides an object for logging to the screen (really
-STDOUT or STDERR).
+This class provides a null logging object. Messages can be sent to the
+object but it does nothing with them.
 
 =head1 METHODS
 
@@ -95,12 +71,6 @@ The maximum logging level this obejct will accept.  See the
 Log::Dispatch documentation on L<Log Levels|Log::Dispatch/"Log Levels"> for more information.  This is not
 required.  By default the maximum is the highest possible level (which
 means functionally that the object has no maximum).
-
-=item * stderr (0 or 1)
-
-Indicates whether or not logging information should go to STDERR.  If
-false, logging information is printed to STDOUT instead.  This
-defaults to true.
 
 =item * callbacks( \& or [ \&, \&, ... ] )
 
@@ -130,3 +100,4 @@ be called directly but should be called through the C<log()> method
 Dave Rolsky, <autarch@urth.org>
 
 =cut
+

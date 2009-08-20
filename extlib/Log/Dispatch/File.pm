@@ -1,6 +1,7 @@
 package Log::Dispatch::File;
 
 use strict;
+use warnings;
 
 use Log::Dispatch::Output;
 
@@ -9,16 +10,13 @@ use base qw( Log::Dispatch::Output );
 use Params::Validate qw(validate SCALAR BOOLEAN);
 Params::Validate::validation_options( allow_extra => 1 );
 
-use vars qw[ $VERSION ];
-
-$VERSION = '1.22';
+our $VERSION = '1.22';
 
 # Prevents death later on if IO::File can't export this constant.
 *O_APPEND = \&APPEND unless defined &O_APPEND;
 
 sub APPEND { 0 }
 
-1;
 
 sub new
 {
@@ -40,35 +38,38 @@ sub _make_handle
     my $self = shift;
 
     my %p = validate( @_, { filename  => { type => SCALAR },
-			    mode      => { type => SCALAR,
-					   default => '>' },
-			    autoflush => { type => BOOLEAN,
-					   default => 1 },
-          		    close_after_write => { type => BOOLEAN,
+                            mode      => { type => SCALAR,
+                                           default => '>' },
+                            binmode   => { type => SCALAR,
+                                           default => undef },
+                            autoflush => { type => BOOLEAN,
+                                           default => 1 },
+                            close_after_write => { type => BOOLEAN,
                                                    default => 0 },
                             permissions => { type => SCALAR,
                                              optional => 1 },
-			  } );
+                          } );
 
-    $self->{filename} = $p{filename};
-    $self->{close} = $p{close_after_write};
+    $self->{filename}    = $p{filename};
+    $self->{close}       = $p{close_after_write};
     $self->{permissions} = $p{permissions};
+    $self->{binmode}     = $p{binmode};
 
     if ( $self->{close} )
     {
         $self->{mode} = '>>';
     }
     elsif ( exists $p{mode} &&
-	 defined $p{mode} &&
-	 ( $p{mode} =~ /^(?:>>|append)$/ ||
-	   ( $p{mode} =~ /^\d+$/ &&
-	     $p{mode} == O_APPEND() ) ) )
+         defined $p{mode} &&
+         ( $p{mode} =~ /^(?:>>|append)$/ ||
+           ( $p{mode} =~ /^\d+$/ &&
+             $p{mode} == O_APPEND() ) ) )
     {
-	$self->{mode} = '>>';
+        $self->{mode} = '>>';
     }
     else
     {
-	$self->{mode} = '>';
+        $self->{mode} = '>';
     }
 
     $self->{autoflush} = $p{autoflush};
@@ -81,9 +82,7 @@ sub _open_file
 {
     my $self = shift;
 
-    my $fh = do { local *FH; *FH; };
-
-    open $fh, "$self->{mode}$self->{filename}"
+    open my $fh, $self->{mode}, $self->{filename}
         or die "Cannot write to '$self->{filename}': $!";
 
     if ( $self->{autoflush} )
@@ -91,11 +90,22 @@ sub _open_file
         my $oldfh = select $fh; $| = 1; select $oldfh;
     }
 
-    if ( $self->{permissions} && ! $self->{chmodded} )
+    if ( $self->{permissions}
+         && ! $self->{chmodded} )
     {
-        chmod $self->{permissions}, $self->{filename}
-            or die "Cannot chmod $self->{filename} to $self->{permissions}: $!";
+        my $current_mode = ( stat $self->{filename} )[2] & 07777;
+        if ( $current_mode ne $self->{permissions} )
+        {
+            chmod $self->{permissions}, $self->{filename}
+                or die "Cannot chmod $self->{filename} to $self->{permissions}: $!";
+        }
+
         $self->{chmodded} = 1;
+    }
+
+    if ( $self->{binmode} )
+    {
+        binmode $fh, $self->{binmode};
     }
 
     $self->{fh} = $fh;
@@ -110,12 +120,12 @@ sub log_message
 
     if ( $self->{close} )
     {
-      	$self->_open_file;
-	$fh = $self->{fh};
-      	print $fh $p{message}
+        $self->_open_file;
+        $fh = $self->{fh};
+        print $fh $p{message}
             or die "Cannot write to '$self->{filename}': $!";
 
-      	close $fh
+        close $fh
             or die "Cannot close '$self->{filename}': $!";
     }
     else
@@ -126,17 +136,19 @@ sub log_message
     }
 }
 
-
 sub DESTROY
 {
     my $self = shift;
 
     if ( $self->{fh} )
     {
-	my $fh = $self->{fh};
-	close $fh;
+        my $fh = $self->{fh};
+        close $fh;
     }
 }
+
+
+1;
 
 __END__
 
@@ -197,6 +209,10 @@ The mode the file should be opened with.  Valid options are 'write',
 '>', 'append', '>>', or the relevant constants from Fcntl.  The
 default is 'write'.
 
+=item * binmode ($)
+
+A layer name to be passed to binmode, like ":utf8" or ":raw".
+
 =item * close_after_write ($)
 
 Whether or not the file should be closed after each write.  This
@@ -256,4 +272,3 @@ be called directly but should be called through the C<log()> method
 Dave Rolsky, <autarch@urth.org>
 
 =cut
-

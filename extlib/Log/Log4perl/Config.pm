@@ -1,7 +1,6 @@
 ##################################################
 package Log::Log4perl::Config;
 ##################################################
-
 use 5.006;
 use strict;
 use warnings;
@@ -20,20 +19,9 @@ our $CONFIG_FILE_READS       = 0;
 our $CONFIG_INTEGRITY_CHECK  = 1;
 our $CONFIG_INTEGRITY_ERROR  = undef;
 
-# How to map lib4j levels to Log::Dispatch levels
-my @LEVEL_MAP_A = qw(
- DEBUG  debug
- INFO   info
- INFO   notice
- WARN   warning
- ERROR  error
- FATAL  critical
- FATAL  alert
- FATAL  emergency
-);
-
 our $WATCHER;
 our $DEFAULT_WATCH_DELAY = 60; # seconds
+our $OPTS = {};
 our $OLD_CONFIG;
 our $LOGGERS_DEFINED;
 
@@ -48,9 +36,15 @@ sub init {
 }
 
 ###########################################
+sub watcher {
+###########################################
+    return $WATCHER;
+}
+
+###########################################
 sub init_and_watch {
 ###########################################
-    my ($class, $config, $delay) = @_;
+    my ($class, $config, $delay, $opts) = @_;
         # delay can be a signal name - in this case we're gonna
         # set up a signal handler.
 
@@ -88,6 +82,11 @@ sub init_and_watch {
                           check_interval => $delay,
                           l4p_internal   => 1,
                    );
+    }
+
+    if(defined $opts) {
+        die "Parameter $opts needs to be a hash ref" if ref($opts) ne "HASH";
+        $OPTS = $opts;
     }
 
     eval { _init($class, $config); };
@@ -450,7 +449,12 @@ sub create_appender_instance {
         $appender->filter($filter);
     }
 
-    if($system_wide_threshold) {
+    if($system_wide_threshold and
+       $
+        Log::Log4perl::Level::PRIORITY{$system_wide_threshold} > 
+       $
+         Log::Log4perl::Level::PRIORITY{$threshold}
+      ) {
         $appender->threshold($
             Log::Log4perl::Level::PRIORITY{$system_wide_threshold});
     }
@@ -499,9 +503,9 @@ sub get_appender_by_name {
 ###########################################
     my($data, $name, $appenders_created) = @_;
 
-    if ($appenders_created->{$name}) {
+    if (exists $appenders_created->{$name}) {
         return $appenders_created->{$name};
-    }else{
+    } else {
         return $data->{appender}->{$name}->{value};
     }
 }
@@ -625,6 +629,10 @@ sub config_read {
     
     print "Reading $config: [@text]\n" if _INTERNAL_DEBUG;
 
+    if(! grep /\S/, @text) {
+        return $data;
+    }
+
     if ($text[0] =~ /^<\?xml /) {
 
         die "XML::DOM not available" unless
@@ -664,6 +672,7 @@ sub unlog4j {
 
     $string =~ s#^org\.apache\.##;
     $string =~ s#^log4j\.##;
+    $string =~ s#^l4p\.##;
     $string =~ s#^log4perl\.##i;
 
     $string =~ s#\.#::#g;
@@ -1053,8 +1062,8 @@ Here's some examples of often-used Log4perl configuration files:
 
     log4perl.category.Bar.Twix      = WARN, Screen
     log4perl.appender.Screen        = Log::Log4perl::Appender::Screen
-    log4perl.appender.Screen.layout = \
     log4perl.appender.Screen.stderr = 0
+    log4perl.appender.Screen.layout = \
         Log::Log4perl::Layout::PatternLayout
     log4perl.appender.Screen.layout.ConversionPattern = %d %m %n
 
