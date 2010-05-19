@@ -6,7 +6,7 @@ package MT::Log::Log4perl;
 use strict; use warnings; use Data::Dumper;
 no warnings 'redefine';
 
-our $VERSION = "1.6"; # $Revision: 803 $
+our $VERSION = "1.7"; # $Revision: 803 $
 
 use strict;
 use base 'Exporter';

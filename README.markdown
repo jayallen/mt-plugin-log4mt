@@ -2,8 +2,8 @@
 
 * **AUTHOR:**     Jay Allen, Endevver Consulting, http://endevver.com
 * **LICENSE:**    GNU Public License v2
-* **VERSION:**    1.5
-* **DATE:**       10/03/2008
+* **VERSION:**    1.7
+* **DATE:**       05/18/2010
 
 The Log4MT plugin enhances Movable Type with the [fantastic and ultra-powerful Log4Perl logging framework][Log4perl]. Like Log4perl, Log4MT enables you to debug your code, handle exceptions or send notifications with one of six priorities (trace, debug, info, warn, error, fatal).
 
@@ -27,7 +27,7 @@ For an overview on Log4MT's capabilities, see the excellent overview of Log::Log
 
 ## VERSION ##
 
-1.5 (released November 3rd, 2008)
+1.7 (released May 18th, 2010)
 
 ## REQUIREMENTS ##
 
@@ -89,6 +89,9 @@ For more, see [Log4MT - Configuration][].
 
 ## VERSION HISTORY ##
 
+Full details can be found in the [commit logs](http://github.com/endevver/mt-plugin-log4mt/commits/master) but briefly:
+
+* 2010/05/18 - Release of v1.7
 * 2008/11/03 - Release of v1.5 ([release notes][Log4MT v1.5 Release Notes])
 * 2008/04/03 - Release of v1.2 beta 2, small but critical bug fix in the configuration file
 * 2008/04/02 - Initial public release of v1.2-beta 
