@@ -3,7 +3,7 @@ use strict; use warnings; use Data::Dumper;
 
 use MT::Log::Log4perl::BaseLogger;
 use base qw(MT::Log::Log4perl::BaseLogger);
-use Log::Log4perl qw(:levels);
+use Log::Log4perl qw(:levels :resurrect );
 use MT::Log::Log4perl::Util qw( err emergency_log trace );
 
 use vars qw($trace_wrapper $logger_methods_installed);
@@ -50,9 +50,9 @@ sub init_handlers {
             my $self = shift;
             my @messages = @_;
             $messages[0] = ' ' if !defined $messages[0] or $messages[0] eq '';
-            $Log::Log4perl::caller_depth++;
+            $Log::Log4perl::caller_depth += 1;
             $trace_wrapper->($self, @messages);
-            $Log::Log4perl::caller_depth--;
+            $Log::Log4perl::caller_depth -= 1;
         };
     
     # Install WARN and DIE signal handlers
@@ -65,19 +65,19 @@ sub init_handlers {
         $Log::Log4perl::caller_depth--;
     };
 
-    my $prevdie = ref($SIG{__DIE__}) ? $SIG{__DIE__} : sub { };
-    $SIG{__DIE__} = sub {
-        # __DIE__ is called by eval blocks too 
-        # which don't need to be logged.
-        if (defined $^S and ! $^S) {
-            $Log::Log4perl::caller_depth++;
-            my $l = Log::Log4perl->get_logger(""); # Root logger
-            print STDERR 'Fatal error caught by Log4perl: '.$_[0]."\n";
-            $l->fatal(@_);            
-        }
-        $prevdie->(@_);
-        die @_; # NOW die...
-    };
+    # my $prevdie = ref($SIG{__DIE__}) ? $SIG{__DIE__} : sub { };
+    # $SIG{__DIE__} = sub {
+    #     # __DIE__ is called by eval blocks too 
+    #     # which don't need to be logged.
+    #     if (defined $^S and ! $^S) {
+    #         $Log::Log4perl::caller_depth++;
+    #         my $l = Log::Log4perl->get_logger(""); # Root logger
+    #         print STDERR 'Fatal error caught by Log4perl: '.$_[0]."\n";
+    #         $l->fatal(@_);            
+    #     }
+    #     $prevdie->(@_);
+    #     die @_; # NOW die...
+    # };
 
     $logger_methods_installed++;
 }
