@@ -10,8 +10,9 @@ our $VERSION = "1.6"; # $Revision: 803 $
 
 use strict;
 use base 'Exporter';
-use vars qw( @EXPORT_OK );
+use vars qw( @EXPORT_OK %EXPORT_TAGS );
 @EXPORT_OK = qw( l4mtdump VERBOSE );
+# %EXPORT_TAGS = qw( :resurrect );
 
 use MT::Log::Log4perl::Util qw( err trace emergency_log );
 
