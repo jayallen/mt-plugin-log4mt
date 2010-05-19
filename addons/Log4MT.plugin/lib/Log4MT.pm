@@ -1,11 +1,11 @@
 package Log4MT;
 
-use strict;
+use strict; use warnings;
 use Data::Dumper;
 use Carp qw( croak confess longmess );
 
 BEGIN {
-    unshift(@INC, "$ENV{MT_HOME}/addons/Log4MT.plugin/extlib");
+    unshift(@INC, "$ENV{MT_HOME}/addons/Log4MT.plugin/lib");
 }
 
 use MT::Log::Log4perl qw(l4mtdump);
