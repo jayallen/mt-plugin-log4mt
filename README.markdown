@@ -43,7 +43,12 @@ This program is distributed under the terms of the GNU General Public License, v
 
 ## INSTALLATION ##
 
-Please see [Log4MT Installation][].
+1. Clone the repository or [download the latest version](https://github.com/endevver/mt-plugin-log4mt/downloads) and unpack the archive
+2. Copy the contents of the `addons` and `extlib` directories in the archive into the respective directories in your [MT][]/[Melody][] application directory. In the case of `extlib/MT`, the directory already exists but the files being added are new.
+3. Copy the `log4mt.conf` file to the root of your MT directory
+4. Modify the `log4mt.conf` file to specify the desired absolute path to your log file. There are instructions inside the file which will guide you.
+
+And that's it!
 
 ## USAGE ##
 
@@ -71,19 +76,16 @@ Using Log4MT in a basic way (i.e. to log messages to a file) is simple. Follow t
     $logger->fatal(sprintf 'Application %s died with error "%s"',
         ref($app), ($app->errstr || $@));
 
-
-See [Log4MT usage][] for much, much more.
-
 ## CONFIGURATION ##
 
 For most users, the basic configuration is enough to get you started logging. If, however, you want to turn down the logging level without removing your logging statements or do some more exotic things, the log4mt.conf file is the heart of the an incredible amount of functionality.
 
-For more, see [Log4MT - Configuration][].
+Everything you can do with the config file to customize Log4MT is documented in the [Log::Log4perl documentation][].
 
 ## FURTHER READING ##
 
 * [Retire your debugger, log smartly with Log::Log4perl!](http://www.perl.com/pub/a/2002/09/11/log4perl.html)
-* [Log::Log4perl documentation](http://log4perl.sourceforge.net/releases/Log-Log4perl/docs/html/Log/Log4perl.html)
+* [Log::Log4perl documentation][]
 * [The exhaustive Log::Log4perl FAQ](http://log4perl.sourceforge.net/releases/Log-Log4perl/docs/html/Log/Log4perl/FAQ.html)
 * POD documentation forthcoming 
 
@@ -92,7 +94,7 @@ For more, see [Log4MT - Configuration][].
 Full details can be found in the [commit logs](http://github.com/endevver/mt-plugin-log4mt/commits/master) but briefly:
 
 * 2010/05/18 - Release of v1.7
-* 2008/11/03 - Release of v1.5 ([release notes][Log4MT v1.5 Release Notes])
+* 2008/11/03 - Release of v1.5
 * 2008/04/03 - Release of v1.2 beta 2, small but critical bug fix in the configuration file
 * 2008/04/02 - Initial public release of v1.2-beta 
 
@@ -100,10 +102,6 @@ Full details can be found in the [commit logs](http://github.com/endevver/mt-plu
 
 This plugin was brought to you by [Jay Allen][], Principal and Chief Architect of [Endevver Consulting][]. I hope that you get as much use out of it as I have.
 
-[Log4MT Installation]: https://trac.endevver.com/movabletype/wiki/code/log4mt/installation
-[Log4MT v1.5 Release Notes]: https://trac.endevver.com/movabletype/wiki/code/log4mt/version-1.5
-[Log4MT usage]: https://trac.endevver.com/movabletype/wiki/code/log4mt/usage
-[Log4MT - Configuration]: https://trac.endevver.com/movabletype/wiki/code/log4mt/configuration
 [Retire your debugger, log smartly with Log::Log4perl!]: http://www.perl.com/pub/a/2002/09/11/log4perl.html
 [Log::Log4perl documentation]: http://log4perl.sourceforge.net/releases/Log-Log4perl/docs/html/Log/Log4perl.html
 [The exhaustive Log::Log4perl FAQ]: http://log4perl.sourceforge.net/releases/Log-Log4perl/docs/html/Log/Log4perl/FAQ.html
