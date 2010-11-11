@@ -155,22 +155,26 @@ oncoming message matches the regular expression C</let this through/i>:
 
     log4perl.filter.MyFilter        = sub { /let this through/i }
 
-It exploits the fact that when C<ok()> is called on a message,
+It exploits the fact that when the subroutine defined
+above is called on a message,
 Perl's special C<$_> variable will be set to the message text (prerendered,
 i.e. concatenated but not layouted) to be logged. 
-The C<ok()> subroutine is expected to return a true value 
+The subroutine is expected to return a true value 
 if it wants the message to be logged or a false value if doesn't.
 
-Also, Log::Log4perl will pass a hash to the C<ok()> method,
+Also, Log::Log4perl will pass a hash to the subroutine,
 containing all key/value pairs that it would pass to the corresponding 
 appender, as specified in Log::Log4perl::Appender. Here's an
 example of a filter checking the priority of the oncoming message:
 
   log4perl.filter.MyFilter        = sub {    \
        my %p = @_;                           \
-       $p{log4p_level} eq "WARN" or          \
-       $p{log4p_level} eq "INFO"             \
-                                          }
+       if($p{log4p_level} eq "WARN" or       \
+          $p{log4p_level} eq "INFO") {       \
+           return 1;                         \
+       }                                     \
+       return 0;                             \
+  }     
 
 If the message priority equals C<WARN> or C<INFO>, 
 it returns a true value, causing
@@ -293,6 +297,10 @@ and define its C<new> and C<ok> methods like this:
 
     1;
 
+Log4perl will call the ok() method to determine if the filter
+should let the message pass or not. A true return value indicates
+the message will be logged by the appender, a false value blocks it.
+
 Values you've defined for its attributes in Log4perl's configuration file,
 will be received through its C<new> method:
 
@@ -324,8 +332,12 @@ L<Log::Log4perl::Filter::LevelRange>,
 L<Log::Log4perl::Filter::StringRange>,
 L<Log::Log4perl::Filter::Boolean>
 
-=head1 AUTHOR
+=head1 COPYRIGHT AND LICENSE
 
-Mike Schilli, E<lt>log4perl@perlmeister.comE<gt>, 2003
+Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+and Kevin Goess E<lt>cpan@goess.orgE<gt>.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. 
 
 =cut

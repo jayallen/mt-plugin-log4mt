@@ -6,77 +6,124 @@ use strict;
 use warnings;
 
 use base qw( Log::Dispatch::Base );
-
+use Params::Validate qw(validate_with ARRAYREF CODEREF);
 use Carp ();
 
-our $VERSION = '2.22';
+our $VERSION = '2.26';
 our %LEVELS;
 
-
-BEGIN
-{
-    foreach my $l ( qw( debug info notice warning err error crit critical alert emerg emergency ) )
-    {
-        my $sub = sub { my $self = shift;
-                        $self->log( level => $l, message => "@_" ); };
+BEGIN {
+    foreach my $l (
+        qw( debug info notice warn warning err error crit critical alert emerg emergency )
+        ) {
+        my $sub = sub {
+            my $self = shift;
+            $self->log( level => $l, message => "@_" );
+        };
 
         $LEVELS{$l} = 1;
 
         no strict 'refs';
-        *{$l} = $sub
+        *{$l} = $sub;
     }
 }
 
-sub new
-{
+sub new {
     my $proto = shift;
     my $class = ref $proto || $proto;
-    my %p = @_;
+
+    my %p = validate_with(
+        params => \@_,
+        spec   => {
+            outputs   => { type => ARRAYREF,           optional => 1 },
+            callbacks => { type => ARRAYREF | CODEREF, optional => 1 }
+        },
+        allow_extra => 1,    # for backward compatibility
+    );
 
     my $self = bless {}, $class;
 
     my @cb = $self->_get_callbacks(%p);
     $self->{callbacks} = \@cb if @cb;
 
+    if ( my $outputs = $p{outputs} ) {
+        if ( ref $outputs->[1] eq 'HASH' ) {
+
+            # 2.23 API
+            # outputs => [
+            #   File => { min_level => 'debug', filename => 'logfile' },
+            #   Screen => { min_level => 'warning' }
+            # ]
+            while ( my ( $class, $params ) = splice @$outputs, 0, 2 ) {
+                $self->_add_output( $class, %$params );
+            }
+        }
+        else {
+
+            # 2.24+ syntax
+            # outputs => [
+            #   [ 'File',   min_level => 'debug', filename => 'logfile' ],
+            #   [ 'Screen', min_level => 'warning' ]
+            # ]
+            foreach my $arr (@$outputs) {
+                die "expected arrayref, not '$arr'"
+                    unless ref $arr eq 'ARRAY';
+                $self->_add_output(@$arr);
+            }
+        }
+    }
+
     return $self;
 }
 
-sub add
-{
-    my $self = shift;
+sub _add_output {
+    my $self  = shift;
+    my $class = shift;
+
+    my $full_class
+        = substr( $class, 0, 1 ) eq '+'
+        ? substr( $class, 1 )
+        : "Log::Dispatch::$class";
+
+    _require_dynamic($full_class);
+
+    $self->add( $full_class->new(@_) );
+}
+
+sub add {
+    my $self   = shift;
     my $object = shift;
 
     # Once 5.6 is more established start using the warnings module.
-    if (exists $self->{outputs}{$object->name} && $^W)
-    {
-        Carp::carp("Log::Dispatch::* object ", $object->name, " already exists.");
+    if ( exists $self->{outputs}{ $object->name } && $^W ) {
+        Carp::carp(
+            "Log::Dispatch::* object ", $object->name,
+            " already exists."
+        );
     }
 
-    $self->{outputs}{$object->name} = $object;
+    $self->{outputs}{ $object->name } = $object;
 }
 
-sub remove
-{
+sub remove {
     my $self = shift;
     my $name = shift;
 
     return delete $self->{outputs}{$name};
 }
 
-sub log
-{
+sub log {
     my $self = shift;
-    my %p = @_;
+    my %p    = @_;
 
     return unless $self->would_log( $p{level} );
 
     $self->_log_to_outputs( $self->_prepare_message(%p) );
 }
 
-sub _prepare_message
-{
+sub _prepare_message {
     my $self = shift;
-    my %p = @_;
+    my %p    = @_;
 
     $p{message} = $p{message}->()
         if ref $p{message} eq 'CODE';
@@ -87,53 +134,47 @@ sub _prepare_message
     return %p;
 }
 
-sub _log_to_outputs
-{
+sub _log_to_outputs {
     my $self = shift;
-    my %p = @_;
+    my %p    = @_;
 
-    foreach (keys %{ $self->{outputs} })
-    {
+    foreach ( keys %{ $self->{outputs} } ) {
         $p{name} = $_;
         $self->_log_to(%p);
     }
 }
 
-sub log_and_die
-{
+sub log_and_die {
     my $self = shift;
 
     my %p = $self->_prepare_message(@_);
 
-    $self->_log_to_outputs(%p) if $self->would_log($p{level});
+    $self->_log_to_outputs(%p) if $self->would_log( $p{level} );
 
     $self->_die_with_message(%p);
 }
 
-sub log_and_croak
-{
+sub log_and_croak {
     my $self = shift;
 
     $self->log_and_die( @_, carp_level => 3 );
 }
 
-sub _die_with_message
-{
+sub _die_with_message {
     my $self = shift;
-    my %p = @_;
+    my %p    = @_;
 
     my $msg = $p{message};
 
-    local $Carp::CarpLevel = ($Carp::CarpLevel || 0) + $p{carp_level}
-	if exists $p{carp_level};
+    local $Carp::CarpLevel = ( $Carp::CarpLevel || 0 ) + $p{carp_level}
+        if exists $p{carp_level};
 
     Carp::croak($msg);
 }
 
-sub log_to
-{
+sub log_to {
     my $self = shift;
-    my %p = @_;
+    my %p    = @_;
 
     $p{message} = $self->_apply_callbacks(%p)
         if $self->{callbacks};
@@ -141,24 +182,21 @@ sub log_to
     $self->_log_to(%p);
 }
 
-sub _log_to
-{
+sub _log_to {
     my $self = shift;
-    my %p = @_;
+    my %p    = @_;
     my $name = $p{name};
 
-    if (exists $self->{outputs}{$name})
-    {
+    if ( exists $self->{outputs}{$name} ) {
         $self->{outputs}{$name}->log(@_);
     }
-    elsif ($^W)
-    {
-        Carp::carp("Log::Dispatch::* object named '$name' not in dispatcher\n");
+    elsif ($^W) {
+        Carp::carp(
+            "Log::Dispatch::* object named '$name' not in dispatcher\n");
     }
 }
 
-sub output
-{
+sub output {
     my $self = shift;
     my $name = shift;
 
@@ -167,67 +205,122 @@ sub output
     return $self->{outputs}{$name};
 }
 
-sub level_is_valid
-{
+sub level_is_valid {
     shift;
     return $LEVELS{ shift() };
 }
 
-sub would_log
-{
-    my $self = shift;
+sub would_log {
+    my $self  = shift;
     my $level = shift;
 
     return 0 unless $self->level_is_valid($level);
 
-    foreach ( values %{ $self->{outputs} } )
-    {
+    foreach ( values %{ $self->{outputs} } ) {
         return 1 if $_->_should_log($level);
     }
 
     return 0;
 }
 
+sub _require_dynamic {
+    my ($class) = @_;
+
+    local $@;
+    eval "require $class";
+    die $@ if $@;
+}
 
 1;
 
-__END__
+# ABSTRACT: Dispatches messages to one or more outputs
+
+
+
+=pod
 
 =head1 NAME
 
 Log::Dispatch - Dispatches messages to one or more outputs
 
+=head1 VERSION
+
+version 2.27
+
 =head1 SYNOPSIS
 
   use Log::Dispatch;
 
-  my $dispatcher = Log::Dispatch->new;
+  # Simple API
+  #
+  my $log = Log::Dispatch->new(
+      outputs => [
+          [ 'File',   min_level => 'debug', filename => 'logfile' ],
+          [ 'Screen', min_level => 'warning' ],
+      ],
+  );
 
-  $dispatcher->add( Log::Dispatch::File->new( name => 'file1',
-                                              min_level => 'debug',
-                                              filename => 'logfile' ) );
+  $log->info('Blah, blah');
 
-  $dispatcher->log( level => 'info',
-                    message => 'Blah, blah' );
+  # More verbose API
+  #
+  my $log = Log::Dispatch->new();
+  $log->add(
+      Log::Dispatch::File->new(
+          name      => 'file1',
+          min_level => 'debug',
+          filename  => 'logfile'
+      )
+  );
+  $log->add(
+      Log::Dispatch::Screen->new(
+          name      => 'screen',
+          min_level => 'warning',
+      )
+  );
 
-  my $sub = sub { my %p = @_;  return reverse $p{message}; };
+  $log->log( level => 'info', message => 'Blah, blah' );
+
+  my $sub = sub { my %p = @_; return reverse $p{message}; };
   my $reversing_dispatcher = Log::Dispatch->new( callbacks => $sub );
 
 =head1 DESCRIPTION
 
-This module manages a set of Log::Dispatch::* objects, allowing you to
-add and remove output objects as desired.
+This module manages a set of Log::Dispatch::* output objects that can be
+logged to via a unified interface.
 
-=head1 METHODS
+The idea is that you create a Log::Dispatch object and then add various
+logging objects to it (such as a file logger or screen logger).  Then you
+call the C<log> method of the dispatch object, which passes the message to
+each of the objects, which in turn decide whether or not to accept the
+message and what to do with it.
+
+This makes it possible to call single method and send a message to a
+log file, via email, to the screen, and anywhere else, all with very
+little code needed on your part, once the dispatching object has been
+created.
+
+=head1 CONSTRUCTOR
+
+The constructor (C<new>) takes the following parameters:
 
 =over 4
 
-=item * new
+=item * outputs( [ [ class, params, ... ], [ class, params, ... ], ... ] )
 
-Returns a new Log::Dispatch object.  This method takes one optional
-parameter:
+This parameter is a reference to a list of lists. Each inner list consists of
+a class name and a set of constructor params. The class is automatically
+prefixed with 'Log::Dispatch::' unless it begins with '+', in which case the
+string following '+' is taken to be a full classname. e.g.
 
-=over 8
+    outputs => [ [ 'File',          min_level => 'debug', filename => 'logfile' ],
+                 [ '+My::Dispatch', min_level => 'info' ] ]
+
+For each inner list, a new output object is created and added to the
+dispatcher (via L</add>).
+
+See L<OUTPUT CLASSES> for the parameters that can be used when creating an
+output object.
 
 =item * callbacks( \& or [ \&, \&, ... ] )
 
@@ -249,35 +342,44 @@ message!
 
 =back
 
-=item * add( Log::Dispatch::* OBJECT )
+=head1 METHODS
 
-Adds a new a Log::Dispatch::* object to the dispatcher.  If an object
-of the same name already exists, then that object is replaced.  A
-warning will be issued if the C<$^W> is true.
+=head2 Logging
 
-NOTE: This method can really take any object that has methods called
-'name' and 'log'.
-
-=item * remove($)
-
-Removes the object that matches the name given to the remove method.
-The return value is the object being removed or undef if no object
-matched this.
+=over 4
 
 =item * log( level => $, message => $ or \& )
 
 Sends the message (at the appropriate level) to all the
-Log::Dispatch::* objects that the dispatcher contains (by calling the
+output objects that the dispatcher contains (by calling the
 C<log_to> method repeatedly).
 
 This method also accepts a subroutine reference as the message
 argument. This reference will be called only if there is an output
 that will accept a message of the specified level.
 
-B<WARNING>: This logging method does something intelligent with a
-subroutine reference as the message but other methods, like
-C<log_to()> or the C<log()> method of an output object, will just
-stringify the reference.
+=item * debug (message), info (message), ...
+
+You may call any valid log level (including valid abbreviations) as a method
+with a single argument that is the message to be logged.  This is converted
+into a call to the C<log> method with the appropriate level.
+
+For example:
+
+ $log->alert('Strange data in incoming request');
+
+translates to:
+
+ $log->log( level => 'alert', message => 'Strange data in incoming request' );
+
+If you pass an array to these methods, it will be stringified as is:
+
+ my @array = ('Something', 'bad', 'is', here');
+ $log->alert(@array);
+
+ # is equivalent to
+
+ $log->alert("@array");
 
 =item * log_and_die( level => $, message => $ or \& )
 
@@ -303,7 +405,20 @@ the current value of C<$Carp::CarpLevel>.
 
 =item * log_to( name => $, level => $, message => $ )
 
-Sends the message only to the named object.
+Sends the message only to the named object. Note: this will not properly
+handle a subroutine reference as the message.
+
+=item * add_callback( $code )
+
+Adds a callback (like those given during construction). It is added to the end
+of the list of callbacks. Note that this can also be called on individual
+output objects.
+
+=back
+
+=head2 Log levels
+
+=over 4
 
 =item * level_is_valid( $string )
 
@@ -315,47 +430,86 @@ valid log level.  Can be called as either a class or object method.
 Given a log level, returns true or false to indicate whether or not
 anything would be logged for that log level.
 
+=back
+
+=head2 Output objects
+
+=over
+
+=item * add( Log::Dispatch::* OBJECT )
+
+Adds a new L<output object|OUTPUT CLASSES> to the dispatcher.  If an object
+of the same name already exists, then that object is replaced, with
+a warning if C<$^W> is true.
+
+=item * remove($)
+
+Removes the object that matches the name given to the remove method.
+The return value is the object being removed or undef if no object
+matched this.
+
 =item * output( $name )
 
-Returns an output of the given name.  Returns undef or an empty list,
-depending on context, if the given output does not exist.
+Returns the output object of the given name.  Returns undef or an empty
+list, depending on context, if the given output does not exist.
 
 =back
 
-=head1 CONVENIENCE METHODS
+=head1 OUTPUT CLASSES
 
-Version 1.6 of Log::Dispatch adds a number of convenience methods for
-logging.  You may now call any valid log level (including valid
-abbreviations) as a method on the Log::Dispatch object with a single
-argument that is the message to be logged.  This is converted into a
-call to the C<log> method with the appropriate level.
+An output class - e.g. L<Log::Dispatch::File> or
+L<Log::Dispatch::Screen> - implements a particular way
+of dispatching logs. Many output classes come with this distribution,
+and others are available separately on CPAN.
 
-For example:
+The following common parameters can be used when creating an output class.
+All are optional. Most output classes will have additional parameters beyond
+these, see their documentation for details.
 
- $dispatcher->alert('Strange data in incoming request');
+=over 4
 
-translates to:
+=item * name ($)
 
- $dispatcher->log( level => 'alert', message => 'Strange data in incoming request' );
+A name for the object (not the filename!). This is useful if you want to
+refer to the object later, e.g. to log specifically to it or remove it.
 
-These methods act like Perl's C<print> built-in when given a list of
-arguments.  Thus, the following calls are equivalent:
+By default a unique name will be generated.  You should not depend on the
+form of generated names, as they may change.
 
- my @array = ('Something', 'bad', 'is', here');
- $dispatcher->alert(@array);
+=item * min_level ($)
 
- my $scalar = "@array";
- $dispatcher->alert($scalar);
+The minimum L<logging level|Log Levels> this object will accept. Required.
 
-One important caveat about these methods is that its not that forwards
-compatible.  If I were to add more parameters to the C<log> call, it
-is unlikely that these could be integrated into these methods without
-breaking existing uses.  This probably means that any future
-parameters to the C<log> method will never be integrated into these
-convenience methods.  OTOH, I don't see any immediate need to expand
-the parameters given to the C<log> method.
+=item * max_level ($)
 
-=head2 Log Levels
+The maximum L<logging level|Log Levels> this object will accept.  By default
+the maximum is the highest possible level (which means functionally that the
+object has no maximum).
+
+=item * callbacks( \& or [ \&, \&, ... ] )
+
+This parameter may be a single subroutine reference or an array
+reference of subroutine references.  These callbacks will be called in
+the order they are given and passed a hash containing the following keys:
+
+ ( message => $log_message, level => $log_level )
+
+The callbacks are expected to modify the message and then return a
+single scalar containing that modified message.  These callbacks will
+be called when either the C<log> or C<log_to> methods are called and
+will only be applied to a given message once.  If they do not return
+the message then you will get no output.  Make sure to return the
+message!
+
+=item * newline (0|1)
+
+If true, a callback will be added to the end of the callbacks list that adds
+a newline to the end of each message. Default is false, but some
+output classes may decide to make the default true. See L</NEWLINES> for more details.
+
+=back
+
+=head1 LOG LEVELS
 
 The log levels that Log::Dispatch uses are taken directly from the
 syslog man pages (except that I expanded them to full words).  Valid
@@ -381,68 +535,26 @@ levels are:
 
 =back
 
-Alternately, the numbers 0 through 7 may be used (debug is 0 and
-emergency is 7).  The syslog standard of 'err', 'crit', and 'emerg'
-is also acceptable.
+Alternately, the numbers 0 through 7 may be used (debug is 0 and emergency is
+7). The syslog standard of 'err', 'crit', and 'emerg' is also acceptable. We
+also allow 'warn' as a synonym for 'warning'.
 
-=head1 USAGE
+=head1 SUBCLASSING
 
-This module is designed to be used as a one-stop logging system.  In
-particular, it was designed to be easy to subclass so that if you want
-to handle messaging in a way not implemented in this package, you
-should be able to add this with minimal effort.
-
-The basic idea behind Log::Dispatch is that you create a Log::Dispatch
-object and then add various logging objects to it (such as a file
-logger or screen logger).  Then you call the C<log> method of the
-dispatch object, which passes the message to each of the objects,
-which in turn decide whether or not to accept the message and what to
-do with it.
-
-This makes it possible to call single method and send a message to a
-log file, via email, to the screen, and anywhere else, all with very
-little code needed on your part, once the dispatching object has been
-created.
-
-The logging levels that Log::Dispatch uses are borrowed from the
-standard UNIX syslog levels, except that where syslog uses partial
-words ("err") Log::Dispatch also allows the use of the full word as
-well ("error").
-
-=head2 Making your own logging objects
-
-Making your own logging object is generally as simple as subclassing
-Log::Dispatch::Output and overriding the C<new> and C<log> methods.
-See the L<Log::Dispatch::Output> docs for more details.
+This module was designed to be easy to subclass. If you want to handle
+messaging in a way not implemented in this package, you should be able to add
+this with minimal effort. It is generally as simple as subclassing
+Log::Dispatch::Output and overriding the C<new> and C<log_message>
+methods. See the L<Log::Dispatch::Output> docs for more details.
 
 If you would like to create your own subclass for sending email then
 it is even simpler.  Simply subclass L<Log::Dispatch::Email> and
 override the C<send_email> method.  See the L<Log::Dispatch::Email>
 docs for more details.
 
-=head2 Why doesn't Log::Dispatch add a newline to the message?
-
-A few people have written email to me asking me to add something that
-would tack a newline onto the end of all messages that don't have one.
-This will never happen.  There are several reasons for this.  First of
-all, Log::Dispatch was designed as a simple system to broadcast a
-message to multiple outputs.  It does not attempt to understand the
-message in any way at all.  Adding a newline implies an attempt to
-understand something about the message and I don't want to go there.
-Secondly, this is not very cross-platform and I don't want to go down
-the road of testing Config values to figure out what to tack onto
-messages based on OS.
-
-I think people's desire to do this is because they are too focused on
-just the logging to files aspect of this module.  In this case
-newlines make sense.  However, imagine someone is using this module to
-log to a remote server and the interactions between the client and
-server use newlines as part of the control flow.  Casually adding a
-newline could cause serious problems.
-
-However, the 1.2 release adds the callbacks parameter for the
-Log::Dispatch object which you can easily use to add newlines to
-messages if you so desire.
+The logging levels that Log::Dispatch uses are borrowed from the standard
+UNIX syslog levels, except that where syslog uses partial words ("err")
+Log::Dispatch also allows the use of the full word as well ("error").
 
 =head1 RELATED MODULES
 
@@ -474,8 +586,10 @@ Written by Arthur Bergman.  Logs messages to the Windows event log.
 
 =head2 Log::Log4perl
 
-An implementation of Java's log4j API in Perl, using Log::Dispatch to
-do the actual logging.  Created by Mike Schilli and Kevin Goess.
+An implementation of Java's log4j API in Perl. Log messages can be limited by
+fine-grained controls, and if they end up being logged, both native Log4perl
+and Log::Dispatch appenders can be used to perform the actual logging
+job. Created by Mike Schilli and Kevin Goess.
 
 =head2 Log::Dispatch::Config
 
@@ -496,28 +610,31 @@ or via email at bug-log-dispatch@rt.cpan.org.
 
 Support questions can be sent to me at my email address, shown below.
 
-The code repository is at https://svn.urth.org/svn/Log-Dispatch/
-
-=head1 AUTHOR
-
-Dave Rolsky, <autarch@urth.org>
-
-=head1 COPYRIGHT
-
-Copyright (c) 1999-2006 David Rolsky.  All rights reserved.  This
-program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
-
-The full text of the license can be found in the LICENSE file included
-with this module.
+The code repository is at http://hg.urth.org/hg/Log-Dispatch.
 
 =head1 SEE ALSO
 
-Log::Dispatch::ApacheLog, Log::Dispatch::Email,
-Log::Dispatch::Email::MailSend, Log::Dispatch::Email::MailSender,
-Log::Dispatch::Email::MailSendmail, Log::Dispatch::Email::MIMELite,
-Log::Dispatch::File, Log::Dispatch::File::Locked,
-Log::Dispatch::Handle, Log::Dispatch::Output, Log::Dispatch::Screen,
-Log::Dispatch::Syslog
+L<Log::Dispatch::ApacheLog>, L<Log::Dispatch::Email>,
+L<Log::Dispatch::Email::MailSend>, L<Log::Dispatch::Email::MailSender>,
+L<Log::Dispatch::Email::MailSendmail>, L<Log::Dispatch::Email::MIMELite>,
+L<Log::Dispatch::File>, L<Log::Dispatch::File::Locked>,
+L<Log::Dispatch::Handle>, L<Log::Dispatch::Output>, L<Log::Dispatch::Screen>,
+L<Log::Dispatch::Syslog>
+
+=head1 AUTHOR
+
+Dave Rolsky <autarch@urth.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is Copyright (c) 2010 by Dave Rolsky.
+
+This is free software, licensed under:
+
+  The Artistic License 2.0
 
 =cut
+
+
+__END__
+

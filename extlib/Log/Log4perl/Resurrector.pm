@@ -3,6 +3,7 @@ use warnings;
 use strict;
 
 use File::Temp qw(tempfile);
+use File::Spec;
 
 use constant INTERNAL_DEBUG => 0;
 
@@ -42,30 +43,36 @@ sub resurrector_loader {
 ###########################################
     my ($code, $module) = @_;
 
+    print "resurrector_loader called with $module\n" if INTERNAL_DEBUG;
+
       # Skip Log4perl appenders
     if($module =~ m#^Log/Log4perl/Appender#) {
-        print "Ignoreing $module (Log4perl-internal)\n" if INTERNAL_DEBUG;
+        print "Ignoring $module (Log4perl-internal)\n" if INTERNAL_DEBUG;
         return undef;
     }
+
+    my $path = $module;
 
       # Skip unknown files
     if(!-f $module) {
           # We might have a 'use lib' statement that modified the
           # INC path, search again.
-        my $path = pm_search($module);
+        $path = pm_search($module);
         if(! defined $path) {
             print "File $module not found\n" if INTERNAL_DEBUG;
             return undef;
         }
         print "File $module found in $path\n" if INTERNAL_DEBUG;
-        $module = $path;
     }
 
-    print "Resurrecting module $module\n" if INTERNAL_DEBUG;
+    print "Resurrecting module $path\n" if INTERNAL_DEBUG;
 
-    my $fh = resurrector_fh($module);
+    my $fh = resurrector_fh($path);
 
-    $INC{$module} = 1;
+    my $abs_path = File::Spec->rel2abs( $path );
+    print "Setting %INC entry of $module to $abs_path\n" if INTERNAL_DEBUG;
+    $INC{$module} = $abs_path;
+
     return $fh;
 }
 
@@ -103,6 +110,8 @@ Log::Log4perl::Resurrector - Dark Magic to resurrect hidden L4p statements
 Loading C<use Log::Log4perl::Resurrector> causes subsequently loaded
 modules to have their hidden
 
+    ###l4p use Log::Log4perl qw(:easy);
+
     ###l4p DEBUG(...)
     ###l4p INFO(...)
     ...
@@ -129,11 +138,15 @@ C<Foobar> actually gets loaded.
 
 Therefore, C<Foobar> will then behave as if the
 
+    ###l4p use Log::Log4perl qw(:easy);
+
     ###l4p DEBUG(...)
     ###l4p INFO(...)
     ...
 
 statements were actually written like
+
+    use Log::Log4perl qw(:easy);
 
     DEBUG(...)
     INFO(...)
@@ -150,14 +163,11 @@ phase has finished, the perl program will run at full speed.
 Some of the techniques used in this module have been stolen from the
 C<Acme::Incorporated> CPAN module, written by I<chromatic>. Long
 live CPAN!
-
-=head1 AUTHORS
-
-Mike Schilli <m@perlmeister.com>
-
+ 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2002-2007 by Mike Schilli E<lt>m@perlmeister.comE<gt>
+Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+and Kevin Goess E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

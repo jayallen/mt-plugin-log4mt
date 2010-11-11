@@ -370,7 +370,8 @@ C<$SIG{__DIE__}> pseudo signal handler
             # this message but catch it later
             return;
         }
-        $Log::Log4perl::caller_depth++;
+        local $Log::Log4perl::caller_depth =
+              $Log::Log4perl::caller_depth + 1;
         my $logger = get_logger("");
         $logger->fatal(@_);
         die @_; # Now terminate really
@@ -393,7 +394,8 @@ If you make sure you've configured with a root logger like this:
 
 then all C<die()> messages will be routed to a file properly. The line
 
-     $Log::Log4perl::caller_depth++;
+     local $Log::Log4perl::caller_depth =
+           $Log::Log4perl::caller_depth + 1;
 
 in the pseudo signal handler above merits a more detailed explanation. With
 the setup above, if a module calls C<die()> in one of its functions, 
@@ -1434,7 +1436,10 @@ add the C<:nowarn> target to the module's C<use Log::Log4perl> call:
     use Log::Log4perl qw(get_logger :nowarn);
 
 This will have Log::Log4perl silently ignore all logging statements if
-no initialization has taken place. 
+no initialization has taken place. If, instead of using init(), you're 
+using Log4perl's API to define loggers and appenders, the same 
+notification happens if no call to add_appenders() is made, i.e. no
+appenders are defined.
 
 If the module wants to figure out if some other program part has 
 already initialized Log::Log4perl, it can do so by calling
@@ -1701,7 +1706,8 @@ required, a C<__DIE__> handler is appropriate:
             # this message but catch it later
             return;
         }
-        $Log::Log4perl::caller_depth++;
+        local $Log::Log4perl::caller_depth =
+            $Log::Log4perl::caller_depth + 1;
         LOGDIE @_;
     };
 
@@ -2592,8 +2598,12 @@ it may be to decide it for them.
 
 Log::Log4perl
 
-=head1 AUTHOR
+=head1 COPYRIGHT AND LICENSE
 
-Mike Schilli, E<lt>log4perl@perlmeister.comE<gt>
+Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+and Kevin Goess E<lt>cpan@goess.orgE<gt>.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. 
 
 =cut

@@ -1,4 +1,7 @@
 package Log::Dispatch::ApacheLog;
+BEGIN {
+  $Log::Dispatch::ApacheLog::VERSION = '2.27';
+}
 
 use strict;
 use warnings;
@@ -10,24 +13,16 @@ use base qw( Log::Dispatch::Output );
 use Params::Validate qw(validate);
 Params::Validate::validation_options( allow_extra => 1 );
 
-our $VERSION = '1.09';
-
-
-BEGIN
-{
-    if ( $ENV{MOD_PERL} && $ENV{MOD_PERL} =~ /2\./ )
-    {
+BEGIN {
+    if ( $ENV{MOD_PERL} && $ENV{MOD_PERL} =~ /2\./ ) {
         require Apache2::Log;
     }
-    else
-    {
+    else {
         require Apache::Log;
     }
 }
 
-
-sub new
-{
+sub new {
     my $proto = shift;
     my $class = ref $proto || $proto;
 
@@ -42,17 +37,17 @@ sub new
 }
 
 {
-    my %methods =
-        ( emergency => 'emerg',
-          critical  => 'crit',
-          warning   => 'warn',
-        );
-    sub log_message
-    {
-        my $self = shift;
-        my %p = @_;
+    my %methods = (
+        emergency => 'emerg',
+        critical  => 'crit',
+        warning   => 'warn',
+    );
 
-        my $level = $self->_level_as_name($p{level});
+    sub log_message {
+        my $self = shift;
+        my %p    = @_;
+
+        my $level = $self->_level_as_name( $p{level} );
 
         my $method = $methods{$level} || $level;
 
@@ -60,86 +55,66 @@ sub new
     }
 }
 
-
 1;
 
-__END__
+# ABSTRACT: Object for logging to Apache::Log objects
+
+
+
+=pod
 
 =head1 NAME
 
 Log::Dispatch::ApacheLog - Object for logging to Apache::Log objects
 
+=head1 VERSION
+
+version 2.27
+
 =head1 SYNOPSIS
 
-  use Log::Dispatch::ApacheLog;
+  use Log::Dispatch;
 
-  my $handle = Log::Dispatch::ApacheLog->new( name      => 'apache log',
-                                              min_level => 'emerg',
-                                              apache    => $r );
+  my $log = Log::Dispatch->new(
+      outputs => [
+          [ 'ApacheLog', apache => $r ],
+      ],
+  );
 
-  $handle->log( level => 'emerg', message => 'Kaboom' );
+  $log->emerg('Kaboom');
 
 =head1 DESCRIPTION
 
-This module allows you to pass messages Apache's log object,
-represented by the Apache::Log class.
+This module allows you to pass messages to Apache's log object,
+represented by the L<Apache::Log> class.
 
-=head1 METHODS
+=head1 CONSTRUCTOR
+
+The constructor takes the following parameters in addition to the standard
+parameters documented in L<Log::Dispatch::Output>:
 
 =over 4
 
-=item * new(%p)
-
-This method takes a hash of parameters.  The following options are
-valid:
-
-=over 8
-
-=item * name ($)
-
-The name of the object (not the filename!).  Required.
-
-=item * min_level ($)
-
-The minimum logging level this object will accept.  See the
-Log::Dispatch documentation on L<Log Levels|Log::Dispatch/"Log Levels"> for more information.  Required.
-
-=item * max_level ($)
-
-The maximum logging level this obejct will accept.  See the
-Log::Dispatch documentation on L<Log Levels|Log::Dispatch/"Log Levels"> for more information.  This is not
-required.  By default the maximum is the highest possible level (which
-means functionally that the object has no maximum).
-
 =item * apache ($)
 
-An object of either the Apache or Apache::Server classes.
-
-=item * callbacks( \& or [ \&, \&, ... ] )
-
-This parameter may be a single subroutine reference or an array
-reference of subroutine references.  These callbacks will be called in
-the order they are given and passed a hash containing the following keys:
-
- ( message => $log_message, level => $log_level )
-
-The callbacks are expected to modify the message and then return a
-single scalar containing that modified message.  These callbacks will
-be called when either the C<log> or C<log_to> methods are called and
-will only be applied to a given message once.
-
-=back
-
-=item * log_message( message => $ )
-
-Sends a message to the appropriate output.  Generally this shouldn't
-be called directly but should be called through the C<log()> method
-(in Log::Dispatch::Output).
+An object of either the L<Apache> or L<Apache::Server> classes. Required.
 
 =back
 
 =head1 AUTHOR
 
-Dave Rolsky, <autarch@urth.org>
+Dave Rolsky <autarch@urth.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is Copyright (c) 2010 by Dave Rolsky.
+
+This is free software, licensed under:
+
+  The Artistic License 2.0
 
 =cut
+
+
+__END__
+

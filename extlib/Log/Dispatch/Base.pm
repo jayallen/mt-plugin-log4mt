@@ -1,13 +1,12 @@
 package Log::Dispatch::Base;
+BEGIN {
+  $Log::Dispatch::Base::VERSION = '2.27';
+}
 
 use strict;
 use warnings;
 
-our $VERSION = '1.09';
-
-
-sub _get_callbacks
-{
+sub _get_callbacks {
     shift;
     my %p = @_;
 
@@ -22,28 +21,46 @@ sub _get_callbacks
     return;
 }
 
-sub _apply_callbacks
-{
+sub _apply_callbacks {
     my $self = shift;
-    my %p = @_;
+    my %p    = @_;
 
     my $msg = delete $p{message};
-    foreach my $cb ( @{ $self->{callbacks} } )
-    {
+    foreach my $cb ( @{ $self->{callbacks} } ) {
         $msg = $cb->( message => $msg, %p );
     }
 
     return $msg;
 }
 
+sub add_callback {
+    my $self  = shift;
+    my $value = shift;
+
+    Carp::carp("given value $value is not a valid callback")
+        unless ref $value eq 'CODE';
+
+    $self->{callbacks} ||= [];
+    push @{ $self->{callbacks} }, $value;
+
+    return;
+}
 
 1;
 
-__END__
+# ABSTRACT: Code shared by dispatch and output objects.
+
+
+
+=pod
 
 =head1 NAME
 
 Log::Dispatch::Base - Code shared by dispatch and output objects.
+
+=head1 VERSION
+
+version 2.27
 
 =head1 SYNOPSIS
 
@@ -60,6 +77,18 @@ does.
 
 =head1 AUTHOR
 
-Dave Rolsky, <autarch@urth.org>
+Dave Rolsky <autarch@urth.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is Copyright (c) 2010 by Dave Rolsky.
+
+This is free software, licensed under:
+
+  The Artistic License 2.0
 
 =cut
+
+
+__END__
+

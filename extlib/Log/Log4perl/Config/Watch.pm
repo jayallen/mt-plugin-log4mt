@@ -28,9 +28,14 @@ sub new {
             # We're in signal mode, set up the handler
         print "Setting up signal handler for '$self->{signal}'\n" if
             _INTERNAL_DEBUG;
+
+        # save old signal handlers; they belong to other appenders or
+        # possibly something else in the consuming application
+        my $old_sig_handler = $SIG{$self->{signal}};
         $SIG{$self->{signal}} = sub { 
-            print "Caught signal\n" if _INTERNAL_DEBUG;
+            print "Caught $self->{signal} signal\n" if _INTERNAL_DEBUG;
             $self->force_next_check();
+            $old_sig_handler->(@_) if $old_sig_handler and ref $old_sig_handler eq 'CODE';
         };
             # Reset the marker. The handler is going to modify it.
         $self->{signal_caught} = 0;
@@ -312,18 +317,10 @@ been replaced by a new file in the meantime.
 The parameters C<check_interval> and C<signal> limit the number of physical 
 file system checks, simililarily as with C<change_detected()>.
 
-=head1 SEE ALSO
-
-=head1 AUTHOR
-
-    Mike Schilli, <log4perl@perlmeister.com>
-
-=cut
-
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by Mike Schilli E<lt>m@perlmeister.comE<gt> and Kevin Goess
-E<lt>cpan@goess.orgE<gt>.
+Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+and Kevin Goess E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

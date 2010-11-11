@@ -1,4 +1,7 @@
 package Log::Dispatch::Syslog;
+BEGIN {
+  $Log::Dispatch::Syslog::VERSION = '2.27';
+}
 
 use strict;
 use warnings;
@@ -7,15 +10,12 @@ use Log::Dispatch::Output;
 
 use base qw( Log::Dispatch::Output );
 
-use Params::Validate qw(validate SCALAR);
+use Params::Validate qw(validate ARRAYREF SCALAR);
 Params::Validate::validation_options( allow_extra => 1 );
 
 use Sys::Syslog 0.16 ();
 
-our $VERSION = '1.18';
-
-sub new
-{
+sub new {
     my $proto = shift;
     my $class = ref $proto || $proto;
 
@@ -29,73 +29,102 @@ sub new
     return $self;
 }
 
-sub _init
-{
+my ($Ident) = $0 =~ /(.+)/;
+
+sub _init {
     my $self = shift;
 
-    my %p = validate( @_, { ident    => { type => SCALAR,
-                                          default => $0 },
-                            logopt   => { type => SCALAR,
-                                          default => '' },
-                            facility => { type => SCALAR,
-                                          default => 'user' },
-                            socket   => { type => SCALAR,
-                                          default => undef },
-                          } );
+    my %p = validate(
+        @_, {
+            ident => {
+                type    => SCALAR,
+                default => $Ident
+            },
+            logopt => {
+                type    => SCALAR,
+                default => ''
+            },
+            facility => {
+                type    => SCALAR,
+                default => 'user'
+            },
+            socket => {
+                type    => SCALAR | ARRAYREF,
+                default => undef
+            },
+        }
+    );
 
     $self->{ident}    = $p{ident};
     $self->{logopt}   = $p{logopt};
     $self->{facility} = $p{facility};
     $self->{socket}   = $p{socket};
 
-    $self->{priorities} = [ 'DEBUG',
-                            'INFO',
-                            'NOTICE',
-                            'WARNING',
-                            'ERR',
-                            'CRIT',
-                            'ALERT',
-                            'EMERG' ];
+    $self->{priorities} = [
+        'DEBUG',
+        'INFO',
+        'NOTICE',
+        'WARNING',
+        'ERR',
+        'CRIT',
+        'ALERT',
+        'EMERG'
+    ];
 
-    Sys::Syslog::setlogsock( $self->{socket} )
+    Sys::Syslog::setlogsock(
+        ref $self->{socket} ? @{ $self->{socket} } : $self->{socket} )
         if defined $self->{socket};
 }
 
-sub log_message
-{
+sub log_message {
     my $self = shift;
-    my %p = @_;
+    my %p    = @_;
 
-    my $pri = $self->_level_as_number($p{level});
+    my $pri = $self->_level_as_number( $p{level} );
 
-    eval
-    {
-        Sys::Syslog::openlog($self->{ident}, $self->{logopt}, $self->{facility});
-        Sys::Syslog::syslog($self->{priorities}[$pri], $p{message});
+    eval {
+        Sys::Syslog::openlog(
+            $self->{ident}, $self->{logopt},
+            $self->{facility}
+        );
+        Sys::Syslog::syslog( $self->{priorities}[$pri], $p{message} );
         Sys::Syslog::closelog;
     };
 
     warn $@ if $@ and $^W;
 }
 
-
 1;
 
-__END__
+# ABSTRACT: Object for logging to system log.
+
+
+
+=pod
 
 =head1 NAME
 
 Log::Dispatch::Syslog - Object for logging to system log.
 
+=head1 VERSION
+
+version 2.27
+
 =head1 SYNOPSIS
 
-  use Log::Dispatch::Syslog;
+  use Log::Dispatch;
 
-  my $file = Log::Dispatch::Syslog->new( name      => 'file1',
-                                         min_level => 'info',
-                                         ident     => 'Yadda yadda' );
+  my $log = Log::Dispatch->new(
+      outputs => [
+          [
+              'Syslog',
+              min_level => 'info',
+              ident     => 'Yadda yadda'
+          ]
+      ]
+  );
 
-  $file->log( level => 'emerg', message => "Time to die." );
+  $log->emerg("Time to die.");
 
 =head1 DESCRIPTION
 
@@ -106,32 +135,12 @@ Note that logging may fail if you try to pass UTF-8 characters in the
 log message. If logging fails and warnings are enabled, the error
 message will be output using Perl's C<warn>.
 
-=head1 METHODS
+=head1 CONSTRUCTOR
+
+The constructor takes the following parameters in addition to the standard
+parameters documented in L<Log::Dispatch::Output>:
 
 =over 4
-
-=item * new(%p)
-
-This method takes a hash of parameters.  The following options are
-valid:
-
-=over 8
-
-=item * name ($)
-
-The name of the object.  Required.
-
-=item * min_level ($)
-
-The minimum logging level this object will accept.  See the
-Log::Dispatch documentation on L<Log Levels|Log::Dispatch/"Log Levels"> for more information.  Required.
-
-=item * max_level ($)
-
-The maximum logging level this obejct will accept.  See the
-Log::Dispatch documentation on L<Log Levels|Log::Dispatch/"Log Levels"> for more information.  This is not
-required.  By default the maximum is the highest possible level (which
-means functionally that the object has no maximum).
 
 =item * ident ($)
 
@@ -151,7 +160,7 @@ Valid options are 'auth', 'authpriv', 'cron', 'daemon', 'kern',
 'local0' through 'local7', 'mail, 'news', 'syslog', 'user',
 'uucp'.  Defaults to 'user'
 
-=item * socket ($)
+=item * socket ($ or \@)
 
 Tells what type of socket to use for sending syslog messages.  Valid
 options are listed in C<Sys::Syslog>.
@@ -160,31 +169,25 @@ If you don't provide this, then we let C<Sys::Syslog> simply pick one
 that works, which is the preferred option, as it makes your code more
 portable.
 
-=item * callbacks( \& or [ \&, \&, ... ] )
-
-This parameter may be a single subroutine reference or an array
-reference of subroutine references.  These callbacks will be called in
-the order they are given and passed a hash containing the following keys:
-
- ( message => $log_message, level => $log_level )
-
-The callbacks are expected to modify the message and then return a
-single scalar containing that modified message.  These callbacks will
-be called when either the C<log> or C<log_to> methods are called and
-will only be applied to a given message once.
-
-=back
-
-=item * log_message( message => $ )
-
-Sends a message to the appropriate output.  Generally this shouldn't
-be called directly but should be called through the C<log()> method
-(in Log::Dispatch::Output).
+If you pass an array reference, it is dereferenced and passed to
+C<Sys::Syslog::setlogsock()>.
 
 =back
 
 =head1 AUTHOR
 
-Dave Rolsky, <autarch@urth.org>
+Dave Rolsky <autarch@urth.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is Copyright (c) 2010 by Dave Rolsky.
+
+This is free software, licensed under:
+
+  The Artistic License 2.0
 
 =cut
+
+
+__END__
+

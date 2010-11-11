@@ -1,4 +1,7 @@
 package Log::Dispatch::File::Locked;
+BEGIN {
+  $Log::Dispatch::File::Locked::VERSION = '2.27';
+}
 
 use strict;
 use warnings;
@@ -7,55 +10,75 @@ use base qw( Log::Dispatch::File );
 
 use Fcntl qw(:DEFAULT :flock);
 
-
-sub _open_file
-{
+sub _open_file {
     my $self = shift;
 
     $self->SUPER::_open_file();
 
     my $fh = $self->{fh};
 
-    flock($fh, LOCK_EX)
+    flock( $fh, LOCK_EX )
         or die "Cannot lock '$self->{filename}' for writing: $!";
 
     # just in case there was an append while we waited for the lock
-    seek($fh, 0, 2)
+    seek( $fh, 0, 2 )
         or die "Cannot seek to end of '$self->{filename}': $!";
 }
 
-
 1;
 
-__END__
+# ABSTRACT: Subclass of Log::Dispatch::File to facilitate locking
+
+
+
+=pod
 
 =head1 NAME
 
-Log::Dispatch::File::Locked - Extension to Log::Dispatch::File to facilitate locking
+Log::Dispatch::File::Locked - Subclass of Log::Dispatch::File to facilitate locking
+
+=head1 VERSION
+
+version 2.27
 
 =head1 SYNOPSIS
 
-  use Log::Dispatch::File::Locked;
+  use Log::Dispatch;
 
-  my $file = Log::Dispatch::File::Locked->new( name      => 'locked_file1',
-                                               min_level => 'info',
-                                               filename  => 'Somefile.log',
-                                             );
+  my $log = Log::Dispatch->new(
+      outputs => [
+          [
+              'File::Locked',
+              min_level => 'info',
+              filename  => 'Somefile.log',
+              mode      => '>>',
+              newline   => 1
+          ]
+      ],
+  );
 
-  $file->log( level => 'emerg', message => "I've fallen and I can't get up\n" );
+  $log->emerg("I've fallen and I can't get up");
 
 =head1 DESCRIPTION
 
-This module acts exactly like Log::Dispatch::File except that it
+This module acts exactly like L<Log::Dispatch::File> except that it
 obtains an exclusive lock on the file before writing to it.
-
-=head1 METHODS
-
-All methods are inherited from Log::Dispatch::File.
 
 =head1 AUTHOR
 
-Dave Rolsky, <autarch@urth.org>
+Dave Rolsky <autarch@urth.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is Copyright (c) 2010 by Dave Rolsky.
+
+This is free software, licensed under:
+
+  The Artistic License 2.0
 
 =cut
+
+
+__END__
+
 

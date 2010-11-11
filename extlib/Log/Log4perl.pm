@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.24';
+our $VERSION = '1.31';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -26,6 +26,8 @@ our %ALLOWED_CODE_OPS = (
     'safe'        => [ ':browse' ],
     'restrictive' => [ ':default' ],
 );
+
+our %WRAPPERS_REGISTERED = map { $_ => 1 } qw(Log::Log4perl);
 
     #set this to the opcodes which are allowed when
     #$ALLOW_CODE_IN_CONFIG_FILE is set to a true value
@@ -177,10 +179,15 @@ sub import {
         delete $tags{':nowarn'};
     }
 
+    if(exists $tags{':nostrict'}) {
+        $Log::Log4perl::Logger::NO_STRICT = 1;
+        delete $tags{':nostrict'};
+    }
+
     if(exists $tags{':resurrect'}) {
         my $FILTER_MODULE = "Filter::Util::Call";
         if(! Log::Log4perl::Util::module_available($FILTER_MODULE)) {
-            die "$FILTER_MODULE required with :unhide" .
+            die "$FILTER_MODULE required with :resurrect" .
                 "(install from CPAN)";
         }
         eval "require $FILTER_MODULE" or die "Cannot pull in $FILTER_MODULE";
@@ -335,6 +342,14 @@ sub easy_init { # Initialize the root logger with a screen appender
 }
 
 ##################################################
+sub wrapper_register {  
+##################################################
+    my $wrapper = $_[-1];
+
+    $WRAPPERS_REGISTERED{ $wrapper } = 1;
+}
+
+##################################################
 sub get_logger {  # Get an instance (shortcut)
 ##################################################
     # get_logger() can be called in the following ways:
@@ -354,15 +369,19 @@ sub get_logger {  # Get an instance (shortcut)
 
     if(@_ == 0) {
           # 1
-        $category = scalar caller($Log::Log4perl::caller_depth);
+        my $level = 0;
+        do { $category = scalar caller($level++);
+        } while exists $WRAPPERS_REGISTERED{ $category };
+
     } elsif(@_ == 1) {
           # 2, 3
-        if($_[0] eq __PACKAGE__) {
-              # 2
-            $category = scalar caller($Log::Log4perl::caller_depth);
-        } else {
-            $category = $_[0];
+        $category = $_[0];
+
+        my $level = 0;
+        while(exists $WRAPPERS_REGISTERED{ $category }) { 
+            $category = scalar caller($level++);
         }
+
     } else {
           # 5, 6
         $category = $_[1];
@@ -393,15 +412,17 @@ sub add_appender { # Add an appender to the system, but don't assign
 }
 
 ##################################################
+# Return number of appenders changed
 sub appender_thresholds_adjust {  # Readjust appender thresholds
 ##################################################
         # If someone calls L4p-> and not L4p::
     shift if $_[0] eq __PACKAGE__;
     my($delta, $appenders) = @_;
+	my $retval = 0;
 
     if($delta == 0) {
           # Nothing to do, no delta given.
-        return 1;
+        return;
     }
 
     if(defined $appenders) {
@@ -431,8 +452,9 @@ sub appender_thresholds_adjust {  # Readjust appender thresholds
                              $old_thres, -$delta);
         }
 
-        $app->threshold($new_thres);
+        ++$retval if ($app->threshold($new_thres) == $new_thres);
     }
+	return $retval;
 }
 
 ##################################################
@@ -468,9 +490,9 @@ sub infiltrate_lwp {  #
 
     my $l4p_wrapper = sub {
         my($prio, @message) = @_;
-        $Log::Log4perl::caller_depth += 2;
+        local $Log::Log4perl::caller_depth =
+              $Log::Log4perl::caller_depth + 2;
         get_logger(scalar caller(1))->log($prio, @message);
-        $Log::Log4perl::caller_depth -= 2;
     };
 
     *LWP::Debug::trace = sub { 
@@ -1064,19 +1086,23 @@ replaced by the logging engine when it's time to log the message:
     %C Fully qualified package (or class) name of the caller
     %d Current date in yyyy/MM/dd hh:mm:ss format
     %F File where the logging event occurred
-    %H Hostname
+    %H Hostname (if Sys::Hostname is available)
     %l Fully qualified name of the calling method followed by the
        callers source the file name and line number between 
        parentheses.
     %L Line number within the file where the log statement was issued
     %m The message to be logged
+    %m{chomp} The message to be logged, stripped off a trailing newline
     %M Method or function where the logging request was issued
     %n Newline (OS-independent)
     %p Priority of the logging event
     %P pid of the current process
     %r Number of milliseconds elapsed from program start to logging 
        event
-    %x The elements of the NDC stack (see below)
+    %R Number of milliseconds elapsed from last logging event to
+       current logging event 
+    %T A stack trace of functions called
+    %x The topmost NDC (see below)
     %X{key} The entry 'key' of the MDC (see below)
     %% A literal percent (%) sign
 
@@ -1902,6 +1928,17 @@ config file, but note that your config file probably won't be
 portable to another log4perl or log4j environment unless you've
 made the appropriate mods there too.
 
+Since Log4perl translates log levels to syslog and Log::Dispatch if 
+their appenders are used, you may add mappings for custom levels as well:
+
+  Log::Log4perl::Level::add_priority("NOTIFY", "WARN",
+                                     $syslog_equiv, $log_dispatch_level);
+
+For example, if your new custom "NOTIFY" level is supposed to map 
+to syslog level 2 ("LOG_NOTICE") and Log::Dispatch level 2 ("notice"), use:
+
+  Log::Log4perl::Logger::create_custom_level("NOTIFY", "WARN", 2, 2);
+
 =head2 System-wide log levels
 
 As a fairly drastic measure to decrease (or increase) the logging level
@@ -2427,23 +2464,72 @@ designing a system with lots of subsystems which you need to control
 independantly, you'll love the features of C<Log::Log4perl>,
 which is equally easy to use.
 
-=head1 Using Log::Log4perl from wrapper classes
+=head1 Using Log::Log4perl with wrapper functions and classes
 
 If you don't use C<Log::Log4perl> as described above, 
-but from a wrapper class (like your own Logging class which in turn uses
-C<Log::Log4perl>),
-the pattern layout will generate wrong data for %F, %C, %L and the like.
-Reason for this is that C<Log::Log4perl>'s loggers assume a static
-caller depth to the application that's using them. If you're using
-one (or more) wrapper classes, C<Log::Log4perl> will indicate where
-your logger classes called the loggers, not where your application
-called your wrapper, which is probably what you want in this case.
-But don't dispair, there's a solution: Just increase the value
-of C<$Log::Log4perl::caller_depth> (defaults to 0) by one for every
-wrapper that's in between your application and C<Log::Log4perl>,
-then C<Log::Log4perl> will compensate for the difference.
+but from a wrapper function, the pattern layout will generate wrong data 
+for %F, %C, %L, and the like. Reason for this is that C<Log::Log4perl>'s 
+loggers assume a static caller depth to the application that's using them. 
 
-Also, note that if you're using a subclass of Log4perl, like
+If you're using
+one (or more) wrapper functions, C<Log::Log4perl> will indicate where
+your logger function called the loggers, not where your application
+called your wrapper:
+
+    use Log::Log4perl qw(:easy);
+    Log::Log4perl->easy_init({ level => $DEBUG, 
+                               layout => "%M %m%n" });
+
+    sub mylog {
+        my($message) = @_;
+
+        DEBUG $message;
+    }
+
+    sub func {
+        mylog "Hello";
+    }
+
+    func();
+
+prints
+
+    main::mylog Hello
+
+but that's probably not what your application expects. Rather, you'd
+want
+
+    main::func Hello
+
+because the C<func> function called your logging function.
+
+But don't dispair, there's a solution: Just register your wrapper
+package with Log4perl beforehand. If Log4perl then finds that it's being 
+called from a registered wrapper, it will automatically step up to the
+next call frame.
+
+    Log::Log4perl->wrapper_register(__PACKAGE__);
+
+    sub mylog {
+        my($message) = @_;
+
+        DEBUG $message;
+    }
+
+Alternatively, you can increase the value of the global variable
+C<$Log::Log4perl::caller_depth> (defaults to 0) by one for every
+wrapper that's in between your application and C<Log::Log4perl>,
+then C<Log::Log4perl> will compensate for the difference:
+
+    sub mylog {
+        my($message) = @_;
+
+        local $Log::Log4perl::caller_depth =
+              $Log::Log4perl::caller_depth + 1;
+        DEBUG $message;
+    }
+
+Also, note that if you're writing a subclass of Log4perl, like
 
     package MyL4pWrapper;
     use Log::Log4perl;
@@ -2453,21 +2539,31 @@ and you want to call get_logger() in your code, like
 
     use MyL4pWrapper;
 
-    sub some_function {
-        my $logger = MyL4pWrapper->get_logger(__PACKAGE__);
-        $logger->debug("Hey, there.");
+    sub get_logger {
+        my $logger = Log::Log4perl->get_logger();
     }
 
-you have to explicitly spell out the category, as in __PACKAGE__ above.
-You can't rely on 
+then the get_logger() call will get a logger for the C<MyL4pWrapper>
+category, not for the package calling the wrapper class as in
 
-      # Don't do that!
-    MyL4pWrapper->get_logger();
+    package UserPackage;
+    my $logger = MyL4pWrapper->get_logger();
 
-and assume that Log4perl will take the class of the current package
-as the category. (Reason behind this is that Log4perl will think you're
-calling C<get_logger("MyL4pWrapper")> and take "MyL4pWrapper" as the 
-category.)
+To have the above call to get_logger return a logger for the 
+"UserPackage" category, you need to tell Log4perl that "MyL4pWrapper"
+is a Log4perl wrapper class:
+
+    use MyL4pWrapper;
+    Log::Log4perl->wrapper_register(__PACKAGE__);
+
+    sub get_logger {
+          # Now gets a logger for the category of the calling package
+        my $logger = Log::Log4perl->get_logger();
+    }
+
+This feature works both for Log4perl-relaying classes like the wrapper
+described above, and for wrappers that inherit from Log4perl use Log4perl's
+get_logger function via inheritance, alike.
 
 =head1 Access to Internals
 
@@ -2528,6 +2624,30 @@ also a special tag for Log4perl that suppresses the second message:
 This causes logdie() and logcroak() to call exit() instead of die(). To
 modify the script exit code in these occasions, set the variable
 C<$Log::Log4perl::LOGEXIT_CODE> to the desired value, the default is 1.
+
+=item Redefine values without causing errors
+
+Log4perl's configuration file parser has a few basic safety mechanisms to 
+make sure configurations are more or less sane. 
+
+One of these safety measures is catching redefined values. For example, if
+you first write
+
+    log4perl.category = WARN, Logfile
+
+and then a couple of lines later
+
+    log4perl.category = TRACE, Logfile
+
+then you might have unintentionally overwritten the first value and Log4perl
+will die on this with an error (suspicious configurations always throw an
+error). Now, there's a chance that this is intentional, for example when
+you're lumping together several configuration files and actually I<want>
+the first value to overwrite the second. In this case use
+
+    use Log::Log4perl qw(:nostrict);
+
+to put Log4perl in a more permissive mode.
 
 =back
 
@@ -2595,7 +2715,7 @@ for details.
 
 Log::Log4perl is still being actively developed. We will
 always make sure the test suite (approx. 500 cases) will pass, but there 
-might still be bugs. please check http://log4perl.sourceforge.net
+might still be bugs. please check http://github.com/mschilli/log4perl
 for the latest release. The api has reached a mature state, we will 
 not change it unless for a good reason.
 
@@ -2659,14 +2779,14 @@ our
     Ateeq Altaf, Cory Bennett, Jens Berthold, Jeremy Bopp, Hutton
     Davidson, Chris R. Donnelly, Matisse Enzer, Hugh Esco, Anthony
     Foiani, James FitzGibbon, Carl Franks, Dennis Gregorovic, Andy
-    Grundman, Paul Harrington, David Hull, Robert Jacobson, Jeff
-    Macdonald, Markus Peter, Brett Rann, Peter Rabbitson, Erik
+    Grundman, Paul Harrington, David Hull, Robert Jacobson, Jason Kohles, 
+    Jeff Macdonald, Markus Peter, Brett Rann, Peter Rabbitson, Erik
     Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> and Kevin Goess
-E<lt>cpan@goess.orgE<gt>.
+Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+and Kevin Goess E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

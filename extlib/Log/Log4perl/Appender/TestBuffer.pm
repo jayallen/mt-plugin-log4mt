@@ -43,6 +43,14 @@ sub log {
     $self->{buffer} .= $params{message};
 }
 
+###########################################
+sub clear {
+###########################################
+    my($self) = @_;
+
+    $self->{buffer} = "";
+}
+
 ##################################################
 sub buffer {   
 ##################################################
@@ -106,7 +114,7 @@ Log::Log4perl::Appender::TestBuffer - Appender class for testing
   use Log::Log4perl::Appender::TestBuffer;
 
   my $appender = Log::Log4perl::Appender::TestBuffer->new( 
-      name      => 'buffer',
+      name      => 'mybuffer',
   );
 
       # Append to the buffer
@@ -118,8 +126,8 @@ Log::Log4perl::Appender::TestBuffer - Appender class for testing
       # Retrieve the result
   my $result = $appender->buffer();
 
-      # Reset the buffer to the empty string
-  $appender->reset();
+      # Clear the buffer to the empty string
+  $appender->clear();
 
 =head1 DESCRIPTION
 
@@ -128,10 +136,26 @@ is a C<Log::Dispatch>-style appender, which writes to a buffer
 in memory, from where actual results can be easily retrieved later
 to compare with expeced results.
 
+Every buffer created is stored in an internal global array, and can
+later be referenced by name:
+
+    my $app = Log::Log4perl::Appender::TestBuffer->by_name("mybuffer");
+
+retrieves the appender object of a previously created buffer "mybuffer".
+To reset this global array and have it forget all of the previously 
+created testbuffer appenders (external references to those appenders
+nonwithstanding), use
+
+    Log::Log4perl::Appender::TestBuffer->reset();
+
 =head1 SEE ALSO
 
-=head1 AUTHOR
+=head1 COPYRIGHT AND LICENSE
 
-Mike Schilli, E<lt>m@perlmeister.comE<gt>
+Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+and Kevin Goess E<lt>cpan@goess.orgE<gt>.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. 
 
 =cut

@@ -109,7 +109,6 @@ sub _init {
     $LOGGERS_DEFINED = 0;
 
     print "Calling _init\n" if _INTERNAL_DEBUG;
-    $Log::Log4perl::Logger::INITIALIZED = 1;
 
     #keep track so we don't create the same one twice
     my %appenders_created = ();
@@ -310,6 +309,8 @@ sub _init {
 
         # Successful init(), save config for later
     $OLD_CONFIG = $data;
+
+    $Log::Log4perl::Logger::INITIALIZED = 1;
 }
 
 ##################################################
@@ -433,6 +434,12 @@ sub create_appender_instance {
        # Check for appender thresholds
     my $threshold = 
        $data->{appender}->{$appname}->{Threshold}->{value};
+
+    if(defined $system_wide_threshold and
+       !defined $threshold) {
+        $threshold = $system_wide_threshold;
+    }
+
     if(defined $threshold) {
             # Need to split into two lines because of CVS
         $appender->threshold($
@@ -449,7 +456,8 @@ sub create_appender_instance {
         $appender->filter($filter);
     }
 
-    if($system_wide_threshold and
+    if(defined $system_wide_threshold and
+       defined $threshold and
        $
         Log::Log4perl::Level::PRIORITY{$system_wide_threshold} > 
        $
@@ -459,7 +467,7 @@ sub create_appender_instance {
             Log::Log4perl::Level::PRIORITY{$system_wide_threshold});
     }
 
-    if($data->{appender}->{$appname}->{threshold}) {
+    if(exists $data->{appender}->{$appname}->{threshold}) {
             die "threshold keyword needs to be uppercase";
     }
 
@@ -552,6 +560,7 @@ sub config_read {
     die "Configuration not defined" unless defined $config;
 
     my @text;
+    my $parser;
 
     $CONFIG_FILE_READS++;  # Count for statistical purposes
 
@@ -642,12 +651,14 @@ sub config_read {
         require Log::Log4perl::Config::DOMConfigurator;
 
         XML::DOM->VERSION($Log::Log4perl::DOM_VERSION_REQUIRED);
-        my $parser = Log::Log4perl::Config::DOMConfigurator->new();
+        $parser = Log::Log4perl::Config::DOMConfigurator->new();
         $data = $parser->parse(\@text);
     } else {
-        my $parser = Log::Log4perl::Config::PropertyConfigurator->new();
+        $parser = Log::Log4perl::Config::PropertyConfigurator->new();
         $data = $parser->parse(\@text);
     }
+
+    $data = $parser->parse_post_process( $data, leaf_paths($data) );
 
     return $data;
 }
@@ -711,6 +722,20 @@ sub leaf_paths {
         }
     }
     return \@result;
+}
+
+###########################################
+sub leaf_path_to_hash {
+###########################################
+    my($leaf_path, $data) = @_;
+
+    my $ref = \$data;
+
+    for my $part ( @$leaf_path[0..$#$leaf_path-1] ) {
+        $ref = \$$ref->{ $part };
+    }
+
+    return $ref;
 }
 
 ###########################################
@@ -1101,10 +1126,6 @@ certainly override it:
 C<write> is the C<mode> that has C<Log::Log4perl::Appender::File>
 explicitely clobber the log file if it exists.
 
-=head1 AUTHOR
-
-Mike Schilli, E<lt>log4perl@perlmeister.comE<gt>
-
 =head1 SEE ALSO
 
 Log::Log4perl::Config::PropertyConfigurator
@@ -1112,5 +1133,13 @@ Log::Log4perl::Config::PropertyConfigurator
 Log::Log4perl::Config::DOMConfigurator
 
 Log::Log4perl::Config::LDAPConfigurator (coming soon!)
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+and Kevin Goess E<lt>cpan@goess.orgE<gt>.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. 
 
 =cut

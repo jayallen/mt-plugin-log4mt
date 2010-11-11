@@ -54,19 +54,22 @@ sub log {
 ###########################################
     my($self, %params) = @_;
 
+    local $Log::Log4perl::caller_depth =
+        $Log::Log4perl::caller_depth + 2;
+
         # Do we need to discard a message because there's already
         # max_size messages in the buffer?
     if(defined $self->{max_messages} and
        @{$self->{buffer}} == $self->{max_messages}) {
         shift @{$self->{buffer}};
     }
+        # Ask the appender to save a cached message in $cache
+    $self->{app}->SUPER::log(\%params,
+                         $params{log4p_category},
+                         $params{log4p_level}, \my $cache);
 
-        # Save event time for later
-    $params{log4p_logtime} = $self->{app}->{layout}->{time_function}->() if
-       exists $self->{app}->{layout}->{time_function};
-
-        # Save message and other parameters
-    push @{$self->{buffer}}, \%params;
+        # Save it in the appender's message buffer
+    push @{ $self->{buffer} }, $cache;
 
     $self->flush() if $self->{trigger}->($self, \%params);
 }
@@ -76,15 +79,9 @@ sub flush {
 ###########################################
     my($self) = @_;
 
-        # Log pending messages if we have any
-    for(@{$self->{buffer}}) {
-            # Trick the renderer into using the original event time
-        local $self->{app}->{layout}->{time_function};
-        $self->{app}->{layout}->{time_function} =
-                                    sub { $_->{log4p_logtime} };
-        $self->{app}->SUPER::log($_,
-                                 $_->{log4p_category},
-                                 $_->{log4p_level});
+        # Flush pending messages if we have any
+    for my $cache (@{$self->{buffer}}) {
+        $self->{app}->SUPER::log_cached($cache);
     }
 
         # Empty buffer
@@ -243,12 +240,12 @@ Custom filters are also applied to the composite appender only.
 They are I<not> applied to the sub-appender. Same applies to appender
 thresholds. This behaviour might change in the future.
 
-=head1 LEGALESE
+=head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Mike Schilli, all rights reserved.
-This program is free software, you can redistribute it and/or
-modify it under the same terms as Perl itself.
+Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+and Kevin Goess E<lt>cpan@goess.orgE<gt>.
 
-=head1 AUTHOR
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. 
 
-2004, Mike Schilli <m@perlmeister.com>
+=cut

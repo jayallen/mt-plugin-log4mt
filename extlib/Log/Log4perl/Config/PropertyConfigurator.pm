@@ -59,13 +59,6 @@ sub parse {
             $val =~ s/\${(.*?)}/
                       Log::Log4perl::Config::var_subst($1, \%var_subst)/gex;
 
-            # for triggers, we want to compile them but not run them
-            # (is this worth putting into metadata somewhere?)
-            if ($key =~ /\.trigger$/ ){ 
-                $val = compile_if_perl($val)
-            }elsif ( $key !~ /\.(cspec\.)|warp_message|filter/){
-                $val = eval_if_perl($val)
-            }
             $key = unlog4j($key);
 
             my $how_deep = 0;
@@ -99,7 +92,9 @@ sub parse {
                 push (@{$ptr->{value}}, $val);
             }else{
                 if(defined $ptr->{value}) {
-                    die "$key_org redefined";
+                    if(! $Log::Log4perl::Logger::NO_STRICT) {
+                        die "$key_org redefined";
+                    }
                 }
                 $ptr->{value} = $val;
             }
@@ -187,9 +182,12 @@ Log::Log4perl::Config::DOMConfigurator
 
 Log::Log4perl::Config::LDAPConfigurator (tbd!)
 
-=head1 AUTHOR
+=head1 COPYRIGHT AND LICENSE
 
-Kevin Goess, <cpan@goess.org> Jan-2003
-Mike Schilli, <cpan@perlmeister.com>, 2007
+Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+and Kevin Goess E<lt>cpan@goess.orgE<gt>.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. 
 
 =cut
