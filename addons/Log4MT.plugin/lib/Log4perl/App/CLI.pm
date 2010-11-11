@@ -21,6 +21,7 @@ $logger = MT::Log::Log4perl->new();
 sub init {
     my $app = shift;
     $app->SUPER::init(@_) or return;
+
     # $app->{no_print_body} = 1;
     $app;
 }
@@ -42,33 +43,36 @@ sub pre_run {
 
 sub post_run {
     my $app = shift;
-    $app->print(('OUTPUT-----'x10), "\n");
+    $app->print( ( 'OUTPUT-----' x 10 ), "\n" );
     $app->SUPER::post_run(@_);
-    if ($app->{trace} &&
-        (!defined $app->{warning_trace} || $app->{warning_trace})) {
+    if ( $app->{trace}
+         && ( !defined $app->{warning_trace} || $app->{warning_trace} ) )
+    {
         my $trace = '';
-        foreach (@{$app->{trace}}) {
+        foreach ( @{ $app->{trace} } ) {
             $trace .= "MT DEBUG: $_\n";
+
             # $trace .= $logger->indent("MT DEBUG: $_\n");
         }
         $app->print_trace($trace);
     }
+
     # $app->{query}->save(\*STDOUT);
 }
 
 sub print_trace {
-    my ($app, $trace) = @_;
-    my $del = 'TRACE------'x10;
-    $app->print("\n",join("\n", $del, $trace, $del), "\n");
-    
+    my ( $app, $trace ) = @_;
+    my $del = 'TRACE------' x 10;
+    $app->print( "\n", join( "\n", $del, $trace, $del ), "\n" );
+
 }
 
 sub show_error {
-    my $app = shift;
+    my $app   = shift;
     my $error = $_[0]->{error};
     my $stack = $error ? longmess() : '';
-    
-    $app->print("FATAL> $error (".(caller(0))[3].')'. $stack);
+
+    $app->print( "FATAL> $error (" . ( caller(0) )[3] . ')' . $stack );
     return;
 }
 

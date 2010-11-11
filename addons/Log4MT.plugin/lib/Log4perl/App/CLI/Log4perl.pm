@@ -18,6 +18,7 @@ use vars qw($logger);
 $logger = MT::Log::Log4perl->new();
 
 sub init {
+
     # $logger->trace();
     my $app = shift;
     $app->SUPER::init(@_) or return;
@@ -28,7 +29,7 @@ sub init_request {
     my $app = shift;
     $app->SUPER::init_request(@_) or return;
     my $mode;
-    if ($mode = $app->{query}->param('mode')) {
+    if ( $mode = $app->{query}->param('mode') ) {
         print STDERR "Setting mode to $mode\n";
         $app->mode($mode);
     }
@@ -57,8 +58,9 @@ sub mode_levels {
 }
 
 sub runner {
-    my $app = shift;
+    my $app    = shift;
     my $method = shift;
+
     # $logger->trace();
     return 'howdy';
 }

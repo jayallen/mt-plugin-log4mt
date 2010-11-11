@@ -6,20 +6,22 @@
 
 use strict;
 use warnings;
+
 BEGIN {
-    my @libs =  qw(lib extlib addons/Log4MT.plugin/lib addons/Log4MT.plugin/extlib);            
-    if (-e "$ENV{PWD}/mt-config.cgi") {
-        unshift(@INC, $_) foreach @libs;
+    my @libs
+      = qw(lib extlib addons/Log4MT.plugin/lib addons/Log4MT.plugin/extlib);
+    if ( -e "$ENV{PWD}/mt-config.cgi" ) {
+        unshift( @INC, $_ ) foreach @libs;
     }
     elsif ( $ENV{MT_HOME} and -d $ENV{MT_HOME} ) {
-        unshift(@INC, $ENV{MT_HOME}."/$_") foreach (@libs);
+        unshift( @INC, $ENV{MT_HOME} . "/$_" ) foreach (@libs);
     }
     else {
-        die 'Please set your MT_HOME shell environment variable '.
-            'to point to your MT directory.';
+        die 'Please set your MT_HOME shell environment variable '
+          . 'to point to your MT directory.';
     }
 }
-use MT::Bootstrap::CLI (App => 'Log4perl::App::CLI::Log4perl');
+use MT::Bootstrap::CLI ( App => 'Log4perl::App::CLI::Log4perl' );
 
 __END__
 
