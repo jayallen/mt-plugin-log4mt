@@ -24,7 +24,7 @@ Sub::Install::reinstall_sub({
 
 sub init {
     $logger->trace();
-    my $log_class = MT->model('log') || 'MT::Log';        
+    my $log_class = MT->model('log') || 'MT::Log';
     $logger->debug("Installing get_logger into $log_class from ".__PACKAGE__.' init()');
     require Sub::Install;
     Sub::Install::reinstall_sub({
