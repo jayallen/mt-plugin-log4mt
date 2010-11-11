@@ -1,8 +1,3 @@
-### Log4perl::App:CLI
-# AUTHOR:   Jay Allen, Endevver Consulting
-# See README.txt in this package for more details
-# $Id: CLI.pm 804 2008-02-14 22:56:05Z jay $
-
 package Log4perl::App::CLI;
 
 use strict;

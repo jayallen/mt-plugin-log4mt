@@ -1,8 +1,5 @@
 #!/usr/bin/perl -w
 ### Log4perl harness script
-# AUTHOR:   Jay Allen, Endevver Consulting
-# See README.txt in this package for more details
-# $Id: harness.pl 803 2008-02-14 22:52:06Z jay $
 
 use strict;
 use warnings;
