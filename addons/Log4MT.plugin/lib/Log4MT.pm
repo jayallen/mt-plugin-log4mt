@@ -43,17 +43,18 @@ sub post_init {
 sub init_request {
     my $plugin = shift;
     my $app = shift;
+    my $q = eval { $app->query } || $app->param;
     $logger->debug("Installing get_logger into $log_class from ".__PACKAGE__.' init_request()');
 
     # my $app = MT->instance();
 
-     if (    $app->param('old_pass')
-         or  $app->param('hint')
-         or  $app->param('username') && $app->param('password')) {
+     if (   $q->param('old_pass')
+         or $q->param('hint')
+         or $q->param('username') && $q->param('password')) {
          $logger->info('App query: NOT LOGGED DUE TO LOGIN CREDENTIALS, Mode: ', ($app->mode ? $app->mode : 'None'));
      }
      else {
-         $logger->info('App query: ', l4mtdump($app->{query}));
+         $logger->info('App query: ', l4mtdump( eval { $app->query } || $app->{query} ));
      }
 }
 
@@ -101,9 +102,9 @@ sub hdlr_logger {
         push(@msgs, $args->{message});
     }
     else {
-        my $compile = (defined $args->{compile})      ? $args->{compile}
-                : (defined $args->{uncompiled})   ? ! $args->{uncompiled}
-                                                  : 1;
+        my $compile = (defined $args->{compile})    ? $args->{compile}
+                    : (defined $args->{uncompiled}) ? ! $args->{uncompiled}
+                                                    : 1;
         my $str = $ctx->stash('uncompiled');
         if ($compile) {
             # Process enclosed block of template code
