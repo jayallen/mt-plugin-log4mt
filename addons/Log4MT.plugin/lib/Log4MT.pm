@@ -88,7 +88,7 @@ sub hdlr_logger {
 
     # Get logger from category or logger attribute or use default logger
     my $category = join('.', 'MTLogger', 'Template',
-			($args->{logger} || $args->{category} || undef));
+            ($args->{logger} || $args->{category} || undef));
     my $tmpl_logger = get_logger($category);
 
     # Get logger level from level attribute and set.  INFO is default
@@ -102,8 +102,8 @@ sub hdlr_logger {
     }
     else {
         my $compile = (defined $args->{compile})      ? $args->{compile}
-	            : (defined $args->{uncompiled})   ? ! $args->{uncompiled}
-	                                              : 1;
+                : (defined $args->{uncompiled})   ? ! $args->{uncompiled}
+                                                  : 1;
         my $str = $ctx->stash('uncompiled');
         if ($compile) {
             # Process enclosed block of template code
@@ -116,7 +116,7 @@ sub hdlr_logger {
             }
         }
         $str =~ s/(^\s+|\s+$)//g;
-	push(@msgs, split(/\n/, $str||''));
+    push(@msgs, split(/\n/, $str||''));
     }
     @msgs = map { s/(^\s+|\s+$)//g; $_ } @msgs;
 
