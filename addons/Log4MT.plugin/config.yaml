@@ -6,7 +6,7 @@
 name: Log4MT
 key: Log4MT
 id: Log4MT
-version: 1.7.1
+version: 1.7.2
 author_name: "Jay Allen, Endevver LLC"
 author_link: http://endevver.com/
 description: The Log4MT plugin enhances Movable Type with the fantastic and ultra-powerful Log4Perl logging framework.
